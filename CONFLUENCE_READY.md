@@ -118,7 +118,7 @@ Flat risk. No score tiers. Every Dawn trade risks exactly $100.
 
   "max_trades_london": 1,
   "max_trades_us": 1,
-  "max_trades_asian": 0,
+  "max_trades_asian": 1,
 
   "news_filter_enabled": true,
   "friday_cutoff_hour_sgt": 22,
@@ -213,4 +213,4 @@ Only these files have Dawn-specific logic:
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-04-17 | Initial Dawn release. Built on Rogue v1.3 infrastructure. Session range breakout strategy replaces CPR scoring. Fixed $100 position sizing. Range-based SL/TP via new `sl_mode: range_based` and `tp_mode: range_based`. Spread-adjusted BE inherited from Rogue v1.3. |
-| 1.1 | 2026-04-17 | Post-deploy audit fixes (3 issues). **Critical** — `session_only: false` applied. Root cause: bot.py's legacy Rogue `SESSIONS` tuple (Asian 08-15, London 16-20, US 21-23) was pre-gating entries. With `asian_session_enabled: false` (correct for Dawn) hour 15 fell into a disabled session and got blocked — costing Dawn the first hour of the London window (15:00-15:59 SGT), which is the highest-edge hour for session breakouts. v1.1 bypasses the legacy gate entirely; Dawn now gates via `signals.py._active_entry_window` which is strategy-correct. **Cosmetic 1** — Telegram signal-update "CPR width" line replaced with "Range size" when Dawn engine is active. **Cosmetic 2** — Same-setup guard made strategy-agnostic: when levels lack a pivot (non-CPR strategies), it now uses setup-name + direction equality instead of pivot equality. |
+| 1.1 | 2026-04-17 | Post-deploy audit fixes (4 issues). **Critical 1** — `session_only: false` applied. Root cause: bot.py's legacy Rogue `SESSIONS` tuple (Asian 08-15, London 16-20, US 21-23) was pre-gating entries. With `asian_session_enabled: false` (as in v1.0) hour 15 fell into a disabled session and got blocked — costing Dawn the first hour of the London window (15:00-15:59 SGT), which is the highest-edge hour for session breakouts. **Critical 2** — `max_trades_asian: 0 → 1`. Even with `session_only: false`, the downstream `window_cap` check (bot.py:1436) would still fire at 15:00 SGT because `trades_in_window (0) >= max_trades_asian (0)` evaluates True. Raising the cap to 1 lets the cycle proceed; Dawn's own `_active_entry_window` remains the real gate. Both critical fixes are required — either alone is insufficient. **Cosmetic 1** — Telegram signal-update "CPR width" line replaced with "Range size" when Dawn engine is active. **Cosmetic 2** — Same-setup guard made strategy-agnostic: when levels lack a pivot (non-CPR strategies), it now uses setup-name + direction equality instead of pivot equality. |

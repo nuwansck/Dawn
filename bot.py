@@ -38,14 +38,18 @@ v1.0 — initial Dawn release. Built on Rogue v1.3 infrastructure with:
   5. Spread-adjusted breakeven preserved from Rogue v1.3
 
 v1.1 — bug fixes surfaced in first deploy audit:
-  1. CRITICAL — flipped session_only: false so bot.py's legacy SESSIONS tuple
+  1. CRITICAL (1 of 2) — flipped session_only: false so bot.py's legacy SESSIONS tuple
      (8-15 Asian / 16-20 London / 21-23 US) no longer pre-gates Dawn trades.
      The 15:00-15:59 SGT hour (first hour of Dawn's London window, highest-edge)
      was being blocked because hour 15 falls in the legacy Asian slot which was
-     disabled in settings. Dawn now gates entries solely via signals.py's
-     _active_entry_window — the correct layer for strategy-specific timing.
-  2. Replaced "CPR width" display in signal-update Telegram with "Range size".
-  3. Made same-setup guard Dawn-aware — when levels lack a pivot (non-CPR
+     disabled in settings.
+  2. CRITICAL (2 of 2) — raised max_trades_asian from 0 to 1. Even with
+     session_only: false, bot.py:1436's window_cap check (0 >= 0 is True) would
+     still block at hour 15. Both fixes required.
+  3. Dawn now gates entries solely via signals.py's _active_entry_window — the
+     correct layer for strategy-specific timing.
+  4. Replaced "CPR width" display in signal-update Telegram with "Range size".
+  5. Made same-setup guard Dawn-aware — when levels lack a pivot (non-CPR
      strategies), the guard now relies on setup-name + direction match
      instead of pivot equality (which was always False for Dawn → guard never fired).
 """

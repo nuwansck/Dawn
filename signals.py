@@ -1,4 +1,4 @@
-"""Signal engine for Dawn v1.0 — XAU/USD session open breakout.
+"""Signal engine for Dawn v1.1 — XAU/USD session open breakout.
 
 Strategy: trade breakouts of the prior-session range during the first 90 minutes
 after London open (15:00–16:30 SGT) and NY open (20:30–22:00 SGT). Binary
