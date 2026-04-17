@@ -1,6 +1,6 @@
 # Dawn Bot — Technical Documentation
 
-**Version:** 1.0
+**Version:** 1.1
 **Release date:** 2026-04-17
 **Instrument:** XAU/USD M15
 **Base:** Rogue v1.3 infrastructure (signals + strategy rewritten)
@@ -79,8 +79,8 @@ Flat risk. No score tiers. Every Dawn trade risks exactly $100.
 
 ```json
 {
-  "bot_name": "Dawn v1.0",
-  "version": "1.0",
+  "bot_name": "Dawn v1.1",
+  "version": "1.1",
   "demo_mode": true,
 
   "signal_threshold": 1,
@@ -110,10 +110,11 @@ Flat risk. No score tiers. Every Dawn trade risks exactly $100.
   "max_spread_pips": 100,
   "spread_limits": { "London": 100, "US": 100, "Asian": 140 },
 
+  "session_only": false,
   "session_thresholds": { "London": 1, "US": 1, "Asian": 1 },
   "london_session_enabled": true,
   "us_session_enabled": true,
-  "asian_session_enabled": false,
+  "asian_session_enabled": true,
 
   "max_trades_london": 1,
   "max_trades_us": 1,
@@ -158,7 +159,7 @@ On a $5,000 account:
 ### Startup
 
 ```
-🌅 Dawn v1.0 started
+🌅 Dawn v1.1 started
 Mode: DEMO | Balance: $5,000.00
 Pair: XAU/USD (M15)
 Strategy: Session Breakout + H1 Trend Filter | Cycle: 5 min
@@ -212,3 +213,4 @@ Only these files have Dawn-specific logic:
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-04-17 | Initial Dawn release. Built on Rogue v1.3 infrastructure. Session range breakout strategy replaces CPR scoring. Fixed $100 position sizing. Range-based SL/TP via new `sl_mode: range_based` and `tp_mode: range_based`. Spread-adjusted BE inherited from Rogue v1.3. |
+| 1.1 | 2026-04-17 | Post-deploy audit fixes (3 issues). **Critical** — `session_only: false` applied. Root cause: bot.py's legacy Rogue `SESSIONS` tuple (Asian 08-15, London 16-20, US 21-23) was pre-gating entries. With `asian_session_enabled: false` (correct for Dawn) hour 15 fell into a disabled session and got blocked — costing Dawn the first hour of the London window (15:00-15:59 SGT), which is the highest-edge hour for session breakouts. v1.1 bypasses the legacy gate entirely; Dawn now gates via `signals.py._active_entry_window` which is strategy-correct. **Cosmetic 1** — Telegram signal-update "CPR width" line replaced with "Range size" when Dawn engine is active. **Cosmetic 2** — Same-setup guard made strategy-agnostic: when levels lack a pivot (non-CPR strategies), it now uses setup-name + direction equality instead of pivot equality. |

@@ -1,6 +1,6 @@
 # Dawn Deployment Guide
 
-How to deploy Dawn v1.0 as a **separate** Railway service with its **own** OANDA account, independent from Rogue.
+How to deploy Dawn v1.1 as a **separate** Railway service with its **own** OANDA account, independent from Rogue.
 
 ---
 
@@ -61,7 +61,7 @@ In the new Railway service's Variables tab, set **exactly these** (do not copy f
 After deploy, watch the Railway logs for these specific lines:
 
 ```
-Dawn v1.0 — Scheduler starting
+Dawn v1.1 — Scheduler starting
 DATA_DIR : /data
 Login success! Balance: $[your new account balance]
 ```
@@ -77,7 +77,7 @@ Login success! Balance: $[your new account balance]
 Dawn sends a startup message on first boot. It should look like:
 
 ```
-🌅 Dawn v1.0 started
+🌅 Dawn v1.1 started
 Mode: DEMO | Balance: $[new account balance]
 Pair: XAU/USD (M15)
 Strategy: Session Breakout + H1 Trend Filter | Cycle: 5 min
@@ -102,7 +102,7 @@ If this message doesn't arrive, Telegram env vars are wrong or the chat ID is in
 Outside the London (15:00–16:30 SGT) and NY (20:30–22:00 SGT) entry windows, every 5-minute cycle will log:
 
 ```
-=== Dawn v1.0 | [timestamp] ===
+=== Dawn v1.1 | [timestamp] ===
 Outside entry window — idle
 ```
 
@@ -143,7 +143,7 @@ You can update one without touching the other. You can stop one without affectin
 | No Telegram startup message | Wrong `TELEGRAM_CHAT_ID` or token | Check Railway logs for `Telegram send failed` |
 | "Insufficient range data" every cycle during entry window | Timezone misconfig or clock drift | Check DATA_DIR, verify system time is UTC |
 | Bot fires but order rejected | Account insufficient margin or instrument not enabled | Check OANDA account settings — fund to $5K minimum |
-| Logs show `Rogue v1.x` instead of `Dawn v1.0` | Deployed wrong codebase to this service | Re-deploy the Dawn zip, ensure correct service |
+| Logs show `Rogue v1.x` instead of `Dawn v1.1` | Deployed wrong codebase to this service | Re-deploy the Dawn zip, ensure correct service |
 
 ---
 

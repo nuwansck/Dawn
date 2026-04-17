@@ -1,6 +1,6 @@
 {
-  "bot_name": "Dawn v1.0",
-  "version": "1.0",
+  "bot_name": "Dawn v1.1",
+  "version": "1.1",
   "demo_mode": true,
   "trade_gold": true,
 
@@ -44,8 +44,8 @@
     "Asian": 140
   },
 
-  "_comment_sessions": "Dawn only trades during London & NY entry windows. Asian session is range-only, no entries. Thresholds mirror signal_threshold=1 (binary fire).",
-  "session_only": true,
+  "_comment_sessions": "Dawn gates trades via signals.py _active_entry_window (15:00-16:30 London, 20:30-22:00 NY SGT). Legacy bot.py session pre-gate is disabled (session_only: false) because its SESSIONS tuple doesn't align with Dawn's entry windows — it would block 15:00-15:59 SGT (first hour of London, highest-edge). v1.1 fix.",
+  "session_only": false,
   "session_thresholds": {
     "London": 1,
     "US": 1,
@@ -53,7 +53,7 @@
   },
   "london_session_enabled": true,
   "us_session_enabled": true,
-  "asian_session_enabled": false,
+  "asian_session_enabled": true,
 
   "max_trades_london": 1,
   "max_trades_us": 1,

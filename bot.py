@@ -1,4 +1,4 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.0
+"""Dawn — Automated XAU/USD Session Breakout Bot | v1.1
 
 Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
 the first 90 minutes after London open (15:00–16:30 SGT) and NY open
@@ -36,6 +36,18 @@ v1.0 — initial Dawn release. Built on Rogue v1.3 infrastructure with:
   3. Fixed $100 position sizing (no score-to-size tiers)
   4. Dawn-specific settings keys (dawn_range_min/max_usd, dawn_sl/tp_range_pct)
   5. Spread-adjusted breakeven preserved from Rogue v1.3
+
+v1.1 — bug fixes surfaced in first deploy audit:
+  1. CRITICAL — flipped session_only: false so bot.py's legacy SESSIONS tuple
+     (8-15 Asian / 16-20 London / 21-23 US) no longer pre-gates Dawn trades.
+     The 15:00-15:59 SGT hour (first hour of Dawn's London window, highest-edge)
+     was being blocked because hour 15 falls in the legacy Asian slot which was
+     disabled in settings. Dawn now gates entries solely via signals.py's
+     _active_entry_window — the correct layer for strategy-specific timing.
+  2. Replaced "CPR width" display in signal-update Telegram with "Range size".
+  3. Made same-setup guard Dawn-aware — when levels lack a pivot (non-CPR
+     strategies), the guard now relies on setup-name + direction match
+     instead of pivot equality (which was always False for Dawn → guard never fired).
 """
 
 import json
@@ -1508,12 +1520,14 @@ def _signal_phase(db, run_id, settings, alert, trader, history, now_sgt, today, 
     )
 
     cpr_w = levels.get("cpr_width_pct", 0)
+    range_size_val = levels.get("range_size")  # v1.1: Dawn uses range_size instead of CPR
 
     def _send_signal_update(decision, reason, extra_payload=None):
         payload = _signal_payload(settings=settings, score=score, direction=direction, **(extra_payload or {}))
         msg = msg_signal_update(
             banner=banner, session=session, direction=direction,
             score=score, position_usd=position_usd, cpr_width_pct=cpr_w,
+            range_size=range_size_val,
             detail_lines=details.split(" | "), news_penalty=news_penalty,
             raw_score=raw_score, decision=decision, reason=reason,
             cycle_minutes=int(settings.get("cycle_minutes", 5)),
@@ -1608,15 +1622,23 @@ def _signal_phase(db, run_id, settings, alert, trader, history, now_sgt, today, 
             # Check all 4 stale conditions
             _same_setup  = _past_setup == _current_setup
             _same_dir    = _past_dir   == _current_dir
-            _same_levels = _past_pivot > 0 and abs(_past_pivot - _current_pivot) < 1.0
+            # v1.1 Dawn-aware: if either trade lacks a pivot (non-CPR strategy like
+            # Dawn), skip the levels check — rely on setup+direction match instead.
+            # Dawn's setup names embed window+direction ("London Range High Break")
+            # so same_setup+same_dir is already a strong stale indicator.
+            if _past_pivot > 0 and _current_pivot > 0:
+                _same_levels = abs(_past_pivot - _current_pivot) < 1.0
+            else:
+                _same_levels = True  # levels not applicable (Dawn) — treat as same
             _too_soon    = _ref_ts >= _cutoff_dt
 
             if _same_setup and _same_dir and _same_levels and _too_soon:
                 _mins_ago = int((now_sgt - _ref_ts).total_seconds() / 60)
                 _ref_label = "closed" if _past.get("closed_at_sgt") else "opened"
+                _levels_label = f"pivot={_current_pivot}" if _current_pivot > 0 else "same setup"
                 _reason = (
                     f"Same Setup Guard blocked: '{_current_setup}' {_current_dir} "
-                    f"— same CPR levels (pivot={_current_pivot}), "
+                    f"— {_levels_label}, "
                     f"{_ref_label} {_mins_ago}min ago (min={_guard_min}min / {_guard_candles} candles)"
                 )
                 _send_signal_update("BLOCKED", _reason,

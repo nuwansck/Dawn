@@ -1,6 +1,6 @@
 # Dawn — XAU/USD Session Breakout Bot
 
-**Version:** 1.0
+**Version:** 1.1
 **Instrument:** XAU/USD (gold)
 **Timeframe:** M15
 **Target:** 35-40+ point intraday swings
@@ -68,3 +68,4 @@ Dawn is a **sibling bot** to Rogue, not a replacement. Both trade XAU/USD M15. T
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-04-17 | Initial Dawn release. Built on Rogue v1.3 infrastructure. Session range breakout strategy replaces CPR scoring. Fixed $100 position sizing. Range-based SL/TP via new `sl_mode: range_based` and `tp_mode: range_based`. Spread-adjusted BE inherited from Rogue v1.3. |
+| 1.1 | 2026-04-17 | Post-deploy audit fixes: **(critical)** flipped `session_only: false` so Dawn no longer skips the 15:00-15:59 SGT hour — the legacy Rogue `SESSIONS` tuple in bot.py (Asian 08-15, London 16-20, US 21-23) was pre-gating entries based on hour ranges that don't match Dawn's windows. Dawn now gates solely via `signals.py._active_entry_window`. **(cosmetic)** Telegram signal-update messages now show "Range size" instead of "CPR width" when Dawn engine is active. **(cosmetic)** Same-setup guard reworked to compare setup-name + direction when a pivot isn't present (Dawn's levels have no pivot). |

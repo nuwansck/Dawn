@@ -1,4 +1,4 @@
-"""Telegram message templates for Dawn v1.0
+"""Telegram message templates for Dawn v1.1
 AtomicFX-style: clean, state-change only, minimal noise.
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ def _split_banner(banner: str) -> tuple[str, str]:
     """Extract pair from banner.
     Handles both:
       '🇬🇧 LONDON [XAU/USD]'  → ('🇬🇧 LONDON [XAU/USD]', 'XAU/USD')
-      'Dawn v1.0 | XAU/USD' → ('Dawn v1.0', 'XAU/USD')
+      'Dawn v1.1 | XAU/USD' → ('Dawn v1.1', 'XAU/USD')
     """
     if "[" in banner and "]" in banner:
         pair = banner[banner.index("[")+1 : banner.index("]")]
@@ -63,6 +63,7 @@ def msg_signal_update(
     execution_checks=None, cycle_minutes=5, signal_threshold=4,
     setup="", orb_age_min=None, orb_formed=False,
     h1_trend="UNKNOWN", h1_aligned=True, h1_filter_mode="soft",
+    range_size=None,
 ) -> str:
     bot, pair = _split_banner(banner)
     s_str = f"{score}/6"
@@ -70,6 +71,13 @@ def msg_signal_update(
         s_str += f" (raw {raw_score}, news {news_penalty:+d})"
     di    = _dir_icon(direction)
     nline = f"⚠️  News penalty: {news_penalty:+d}\n" if news_penalty else ""
+
+    # Dawn v1.1: prefer range_size line if provided; fall back to CPR for Rogue compat.
+    context_line = (
+        f"Range size: {range_size:.2f} points"
+        if range_size is not None
+        else f"CPR: {cpr_width_pct:.2f}% width"
+    )
 
     # H1 trend line — shows on all cards when filter is enabled
     def _h1_line():
@@ -87,7 +95,7 @@ def msg_signal_update(
             f"{_h1_line()}"
             f"{nline}"
             f"{_DIV}\n"
-            f"CPR: {cpr_width_pct:.2f}% width\n"
+            f"{context_line}\n"
             f"Next cycle in {cycle_minutes} min"
         )
 
@@ -110,7 +118,7 @@ def msg_signal_update(
     return (
         f"{banner}\n{_DIV}\n"
         f"{pair}  {di} {direction}  Score {s_str}  ✅ Ready\n"
-        f"Window: {session}  |  CPR: {cpr_width_pct:.2f}% width\n"
+        f"Window: {session}  |  {context_line}\n"
         f"{_h1_line()}"
         f"{nline}"
         f"{_DIV}\n"
