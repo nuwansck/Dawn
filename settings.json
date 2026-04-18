@@ -19,7 +19,7 @@
   "sl_min_usd": 15.0,
   "sl_max_usd": 35.0,
   "rr_ratio": 1.5,
-  "max_rr_ratio": 1.5,
+  "max_rr_ratio": 4.0,
 
   "breakeven_enabled": true,
   "breakeven_spread_adjust": true,
