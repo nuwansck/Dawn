@@ -1,6 +1,6 @@
 # Dawn — XAU/USD Session Breakout Bot
 
-**Version:** 1.1
+**Version:** 1.2
 **Instrument:** XAU/USD (gold)
 **Timeframe:** M15
 **Target:** 35-40+ point intraday swings
@@ -68,4 +68,5 @@ Dawn is a **sibling bot** to Rogue, not a replacement. Both trade XAU/USD M15. T
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-04-17 | Initial Dawn release. Built on Rogue v1.3 infrastructure. Session range breakout strategy replaces CPR scoring. Fixed $100 position sizing. Range-based SL/TP via new `sl_mode: range_based` and `tp_mode: range_based`. Spread-adjusted BE inherited from Rogue v1.3. |
+| 1.2 | 2026-04-26 | Bug fixes. **(fix 1)** Removed stale `session_start_sgt=` kwarg from `send_daily_report()` call in `reporting.py` — was causing a `TypeError` that silently killed the nightly Telegram report every day. **(fix 2)** Changed `suppress_nextweek_404` in `calendar_fetcher.py` to always `True` — FF next-week URL returns HTTP 404 regardless of day; previous logic only suppressed Mon–Wed, generating hourly WARNING spam Thu–Sun with no operational impact. |
 | 1.1 | 2026-04-17 | Post-deploy audit fixes. **(critical 1)** Flipped `session_only: false` so Dawn no longer skips the 15:00-15:59 SGT hour — the legacy Rogue `SESSIONS` tuple in bot.py (Asian 08-15, London 16-20, US 21-23) was pre-gating entries based on hour ranges that don't match Dawn's windows. **(critical 2)** Raised `max_trades_asian: 0 → 1` — even with session gate bypassed, the downstream window-cap check `trades_in_window >= cap` (0 ≥ 0 = True) would still block at hour 15. **(cosmetic)** Telegram signal-update messages now show "Range size" instead of "CPR width" when Dawn engine is active. **(cosmetic)** Same-setup guard reworked to compare setup-name + direction when a pivot isn't present (Dawn's levels have no pivot). Dawn now gates entries solely via `signals.py._active_entry_window`. |

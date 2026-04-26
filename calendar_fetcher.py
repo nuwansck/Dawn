@@ -281,8 +281,9 @@ def run_fetch() -> bool:
         log.info("Skipping calendar refresh — %s", reason)
         return False
 
-    today_weekday = now.weekday()
-    suppress_nextweek_404 = today_weekday < 3
+    # Always suppress 404 on next-week URL — FF does not publish it reliably
+    # and it is not required for correct news filtering (this-week feed is sufficient).
+    suppress_nextweek_404 = True
 
     this_week, status_this = _fetch_ff_events(FF_URL)
     next_week, status_next = _fetch_ff_events(NEXT_WEEK_URL, suppress_404=suppress_nextweek_404)

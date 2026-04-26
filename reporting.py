@@ -375,7 +375,6 @@ def send_daily_report() -> None:
             mtd_stats   = mtd_stats,
             open_count  = open_count,
             report_time = now.strftime("%H:%M SGT"),
-            session_start_sgt=f"{_sess_hour:02d}:00 SGT",
         )
         ok = TelegramAlert().send(msg)
         if ok:
