@@ -88,7 +88,7 @@ H1 filter: ✅ HARD
 Entry windows (SGT)
   🇬🇧 15:00–16:30  London open  (range 07:00–15:00)
   🗽 20:30–22:00  NY open      (range 15:00–20:30)
-Range filter: 15–80 points | SL 50% × range | TP 150% × range
+Range filter: 15–80 points | SL 50% × range | TP 100% × range
 
 Daily caps: 2 losses, 2 trades | Global: 1 open | Reset: 08:00 SGT
 ```

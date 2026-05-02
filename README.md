@@ -1,9 +1,9 @@
 # Dawn — XAU/USD Session Breakout Bot
 
-**Version:** 1.2
+**Version:** 1.2.2
 **Instrument:** XAU/USD (gold)
 **Timeframe:** M15
-**Target:** 35-40+ point intraday swings
+**Target:** realistic 1:2 style intraday exits
 **Deployed on:** OANDA (demo first), Railway (Singapore region)
 
 ---
@@ -17,7 +17,7 @@ Dawn trades breakouts of the prior session's range during the first 90 minutes a
 - London and NY opens bring the highest volume and cleanest directional moves of the gold trading day
 - Breaking the prior session's range has meaningful follow-through when combined with a higher-timeframe trend filter
 - Binary entry trigger — no scoring ambiguity, no confluence gaming
-- Target size naturally in the 35-90 point zone (range × 1.5) — matches where gold actually moves on an intraday basis
+- TP now uses a more realistic M15 target: range × 1.0, with breakeven/partial management instead of always chasing a large 1:3 target
 - Only 1-2 trades/day — low enough noise to evaluate edge quickly
 
 ## Core logic
@@ -30,7 +30,7 @@ Dawn trades breakouts of the prior session's range during the first 90 minutes a
 | Entry window (NY) | 20:30–22:00 SGT (first 90 min after open) |
 | Trigger | M15 candle close beyond range high/low |
 | SL | range × 0.50 (clamped $15–$35) |
-| TP | range × 1.50 (clamped by max_rr_ratio × SL) |
+| TP | range × 1.00 (capped by max_rr_ratio × SL) |
 | Position size | $100 fixed risk per trade |
 | Max trades/day | 2 (1 per window) |
 | Max losses/day | 2 (hard stop) |
@@ -55,7 +55,7 @@ At 1× SL profit, Dawn partial-closes 50% of the position and moves SL to the en
 |---|---|
 | Trades per week | 4-8 (2 windows × 5 days, many filtered out) |
 | Win rate | 45-55% (estimate; no live data yet) |
-| Avg win | 35-45 points (range × 1.5, typical range 25-35) |
+| Avg win | More realistic M15 target: around range × 1.0, with partial close at breakeven trigger |
 | Avg loss | 15-25 points (range × 0.5, post-clamp) |
 | Max drawdown | 2 losing trades/day × $30-35 = ~$70/day worst case |
 
@@ -67,6 +67,7 @@ Dawn is a **sibling bot** to Rogue, not a replacement. Both trade XAU/USD M15. T
 
 | Version | Date | Change |
 |---|---|---|
+| 1.2.2 | 2026-05-02 | Realistic M15 exit update. TP changed from `range × 1.50` to `range × 1.00`, RR cap lowered to `2.5`, daily trade cap aligned to 2, startup Telegram now shows exact SL/TP logic, and trade-open Telegram now includes SL/TP calculation + broker confirmation check. |
 | 1.0 | 2026-04-17 | Initial Dawn release. Built on Rogue v1.3 infrastructure. Session range breakout strategy replaces CPR scoring. Fixed $100 position sizing. Range-based SL/TP via new `sl_mode: range_based` and `tp_mode: range_based`. Spread-adjusted BE inherited from Rogue v1.3. |
 | 1.2 | 2026-04-26 | Bug fixes. **(fix 1)** Removed stale `session_start_sgt=` kwarg from `send_daily_report()` call in `reporting.py` — was causing a `TypeError` that silently killed the nightly Telegram report every day. **(fix 2)** Changed `suppress_nextweek_404` in `calendar_fetcher.py` to always `True` — FF next-week URL returns HTTP 404 regardless of day; previous logic only suppressed Mon–Wed, generating hourly WARNING spam Thu–Sun with no operational impact. |
 | 1.1 | 2026-04-17 | Post-deploy audit fixes. **(critical 1)** Flipped `session_only: false` so Dawn no longer skips the 15:00-15:59 SGT hour — the legacy Rogue `SESSIONS` tuple in bot.py (Asian 08-15, London 16-20, US 21-23) was pre-gating entries based on hour ranges that don't match Dawn's windows. **(critical 2)** Raised `max_trades_asian: 0 → 1` — even with session gate bypassed, the downstream window-cap check `trades_in_window >= cap` (0 ≥ 0 = True) would still block at hour 15. **(cosmetic)** Telegram signal-update messages now show "Range size" instead of "CPR width" when Dawn engine is active. **(cosmetic)** Same-setup guard reworked to compare setup-name + direction when a pivot isn't present (Dawn's levels have no pivot). Dawn now gates entries solely via `signals.py._active_entry_window`. |

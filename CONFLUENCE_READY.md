@@ -58,7 +58,7 @@ Hard block, inherited from Rogue v1.3. Prevents the worst of all gold trade type
 SL_raw = range_size × dawn_sl_range_pct   (default 0.50)
 SL     = clamp(SL_raw, sl_min_usd, sl_max_usd)   (default 15 ≤ SL ≤ 35)
 
-TP_raw = range_size × dawn_tp_range_pct   (default 1.50)
+TP_raw = range_size × dawn_tp_range_pct   (default 1.00)
 TP     = min(TP_raw, SL × max_rr_ratio)   (default RR cap 1.5)
 ```
 
@@ -87,7 +87,7 @@ Flat risk. No score tiers. Every Dawn trade risks exactly $100.
 
   "dawn_position_usd": 100,
   "dawn_sl_range_pct": 0.50,
-  "dawn_tp_range_pct": 1.50,
+  "dawn_tp_range_pct": 1.00,
   "dawn_range_min_usd": 15.0,
   "dawn_range_max_usd": 80.0,
 
@@ -95,8 +95,8 @@ Flat risk. No score tiers. Every Dawn trade risks exactly $100.
   "tp_mode": "range_based",
   "sl_min_usd": 15.0,
   "sl_max_usd": 35.0,
-  "rr_ratio": 1.5,
-  "max_rr_ratio": 1.5,
+  "rr_ratio": 2.0,
+  "max_rr_ratio": 2.5,
 
   "breakeven_enabled": true,
   "breakeven_spread_adjust": true,
@@ -145,7 +145,7 @@ Worst day (2 losses): **–$200**.
 Typical trade outcomes:
 
 - **Full SL:** –$15 to –$35 per trade (range-dependent)
-- **Full TP:** +$22 to +$90 per trade (range × 1.5)
+- **Full TP:** +$22 to +$90 per trade (range × 1.0)
 - **Breakeven stop after partial close:** +$8 to +$18 (locked half at 1× SL, runner stops flat)
 
 On a $5,000 account:
@@ -170,7 +170,7 @@ H1 filter: ✅ HARD
 Entry windows (SGT)
   🇬🇧 15:00–16:30  London open  (range 07:00–15:00)
   🗽 20:30–22:00  NY open      (range 15:00–20:30)
-Range filter: 15–80 points | SL 50% × range | TP 150% × range
+Range filter: 15–80 points | SL 50% × range | TP 100% × range
 
 Daily caps: 2 losses, 2 trades | Global: 1 open | Reset: 08:00 SGT
 ```

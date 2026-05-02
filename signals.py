@@ -27,7 +27,7 @@ Filters:
 
 SL / TP:
   SL = range_size × dawn_sl_range_pct (default 0.50) — clamped [sl_min_usd, sl_max_usd]
-  TP = range_size × dawn_tp_range_pct (default 1.50) — pure RR on the range
+  TP = range_size × dawn_tp_range_pct (default 1.00) — realistic M15 target
 
 Position size: fixed dawn_position_usd (default $100) per trade.
   units = position_usd / SL_usd
@@ -195,7 +195,7 @@ class SignalEngine:
 
         # 7. SL / TP from range
         sl_pct = float(settings.get("dawn_sl_range_pct", 0.50))
-        tp_pct = float(settings.get("dawn_tp_range_pct", 1.50))
+        tp_pct = float(settings.get("dawn_tp_range_pct", 1.00))
         sl_min = float(settings.get("sl_min_usd", 15.0))
         sl_max = float(settings.get("sl_max_usd", 35.0))
 

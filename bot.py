@@ -1,4 +1,4 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.2.1
+"""Dawn — Automated XAU/USD Session Breakout Bot | v1.2.2
 
 Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
 the first 90 minutes after London open (15:00–16:30 SGT) and NY open
@@ -12,7 +12,7 @@ Strategy:
 
 Risk:
   SL = range_size × 0.50  (clamped $15–$35)
-  TP = range_size × 1.50  (RR 1:1.5)
+  TP = range_size × 1.00  (realistic M15 target; capped by max_rr_ratio)
 
 Entry guards (inherited from Rogue v1.3 infrastructure):
   Range-size filter  — 15 ≤ range ≤ 80 points (reject noise & volatile days)
@@ -24,7 +24,7 @@ Entry guards (inherited from Rogue v1.3 infrastructure):
   Same-setup guard   — one trade per entry window
 
 Risk controls:
-  Max trades/day         : 6 (cap rarely hit — 2 windows × 1 trade)
+  Max trades/day         : 2 (1 London + 1 NY)
   Max losses/day         : 2 (hard stop)
   Max losses/session     : 2
   Direction cooldown     : 120 min
@@ -165,12 +165,12 @@ def validate_settings(settings: dict) -> dict:
     # by setdefault — a missing key is treated the same as any other default.
     # v4.4 — Three sessions active
     settings.setdefault("spread_limits",             {"Asian": 150, "London": 140, "US": 140})
-    settings.setdefault("max_trades_day",            999)   # v4.0-uncapped
+    settings.setdefault("max_trades_day",            2)     # v1.2.2 — Dawn has 2 entry windows/day
     settings.setdefault("max_losing_trades_day",     999)   # v4.0-uncapped
     settings.setdefault("sl_mode",                   "atr_based")   # v4.0
     settings.setdefault("tp_mode",                   "rr_multiple")
-    settings.setdefault("rr_ratio",                  2.65)          # v4.2 — read from settings.json
-    settings.setdefault("max_rr_ratio",              3.0)           # v4.6 — hard TP ceiling as multiple of SL
+    settings.setdefault("rr_ratio",                  2.0)           # v1.2.2 — realistic M15 minimum RR
+    settings.setdefault("max_rr_ratio",              2.5)           # v1.2.2 — avoid unrealistic M15 TP
     settings.setdefault("sl_min_atr_mult",           0.8)           # v5.1 — adaptive SL floor as fraction of ATR
     settings.setdefault("h1_trend_filter_enabled",   True)          # v5.1 — H1 EMA trend filter
     settings.setdefault("h1_ema_period",             21)            # v5.1 — H1 EMA period for trend
@@ -183,11 +183,11 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("enabled",                   True)
     settings.setdefault("atr_sl_multiplier",         1.0)           # v4.0 — raised from 0.5
     settings.setdefault("sl_min_usd",                15.0)          # v4.0 — raised from 4.0
-    settings.setdefault("sl_max_usd",                40.0)          # v4.0 — raised from 20.0
+    settings.setdefault("sl_max_usd",                35.0)          # v1.2.2 — Dawn range-based SL clamp
     settings.setdefault("fixed_sl_usd",              20.0)          # v4.0 — raised from 5.0
     settings.setdefault("breakeven_trigger_usd",     15.0)          # v4.0 — raised from 3.0
     settings.setdefault("dry_run",                   False)         # v1.2.1 — signal/order simulation; no broker order
-    settings.setdefault("daily_loss_limit_usd",      0.0)           # v1.2.1 — 0 disables dollar loss stop
+    settings.setdefault("daily_loss_limit_usd",      150.0)         # v1.2.2 — daily dollar loss stop
     settings.setdefault("sl_pct",                   0.0025)
     settings.setdefault("tp_pct",                   0.0075)
     settings.setdefault("margin_safety_factor",      0.6)
@@ -203,8 +203,8 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("loss_streak_cooldown_min",   0)    # v4.0-uncapped — disabled
     settings.setdefault("max_concurrent_trades",      1)
     # v4.0-uncapped — per-session caps removed
-    settings.setdefault("max_trades_london",          999)
-    settings.setdefault("max_trades_us",              999)
+    settings.setdefault("max_trades_london",          1)
+    settings.setdefault("max_trades_us",              1)
     settings.setdefault("max_spread_pips",            150)
     settings.setdefault("session_only",               True)
     settings.setdefault("session_thresholds",         {"Asian": 4, "London": 4, "US": 4})
@@ -2083,6 +2083,10 @@ def _execution_phase(db, run_id, settings, alert, trader, history, now_sgt, toda
                     (trader.estimate_required_margin(INSTRUMENT, units, price_for_margin) / float(margin_info.get("free_margin", 0)) * 100)
                     if float(margin_info.get("free_margin", 0)) > 0 else None
                 ),
+                range_high=levels.get("range_high"),
+                range_low=levels.get("range_low"),
+                range_size=levels.get("range_size"),
+                sl_raw_usd=levels.get("sl_raw_usd"),
             ))
         log.info("Trade placed: %s", record, extra={"run_id": run_id})
 

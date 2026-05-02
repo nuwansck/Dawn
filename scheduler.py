@@ -232,6 +232,15 @@ def main():
             max_total_open=int(settings.get('max_concurrent_trades', 1)),
             h1_filter_enabled=bool(settings.get('h1_trend_filter_enabled', True)),
             h1_filter_mode=str(settings.get('h1_filter_mode', 'hard')),
+            dry_run=bool(settings.get('dry_run', False)),
+            daily_loss_limit_usd=float(settings.get('daily_loss_limit_usd', 150.0) or 0),
+            dawn_range_min_usd=float(settings.get('dawn_range_min_usd', 15.0)),
+            dawn_range_max_usd=float(settings.get('dawn_range_max_usd', 80.0)),
+            dawn_sl_range_pct=float(settings.get('dawn_sl_range_pct', 0.50)),
+            dawn_tp_range_pct=float(settings.get('dawn_tp_range_pct', 1.00)),
+            sl_min_usd=float(settings.get('sl_min_usd', 15.0)),
+            sl_max_usd=float(settings.get('sl_max_usd', 35.0)),
+            max_rr_ratio=float(settings.get('max_rr_ratio', 2.5)),
         ))
     except Exception as _e:
         logger.warning('Could not send startup Telegram alert: %s', _e)

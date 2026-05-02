@@ -137,6 +137,7 @@ def msg_trade_opened(
     required_margin=None, requested_units=None, margin_mode="NORMAL", margin_usage_pct=None,
     price_dp=2, tp2_rr=3.0,
     h1_trend="UNKNOWN", h1_aligned=True,
+    range_high=None, range_low=None, range_size=None, sl_raw_usd=None,
 ) -> str:
     bot, pair = _split_banner(banner)
     mode = "DEMO" if demo else "LIVE"
@@ -169,14 +170,32 @@ def msg_trade_opened(
     if requested_units is not None and float(requested_units) != float(units):
         margin_lines += f"Units adjusted: {requested_units:g} → {units:g}\n"
 
+    expected_sl = round(fill_price - sl_usd if direction == "BUY" else fill_price + sl_usd, price_dp)
+    expected_tp = round(fill_price + tp_usd if direction == "BUY" else fill_price - tp_usd, price_dp)
+    sl_ok = "✅" if abs(float(sl_price) - expected_sl) <= 0.05 else "⚠️"
+    tp_ok = "✅" if abs(float(tp_price) - expected_tp) <= 0.05 else "⚠️"
+    range_line = ""
+    if range_low is not None and range_high is not None and range_size is not None:
+        range_line = (
+            f"Range:   {float(range_low):.{price_dp}f}–{float(range_high):.{price_dp}f} "
+            f"(size ${float(range_size):.2f})\n"
+        )
+    sl_calc_line = ""
+    if sl_raw_usd is not None:
+        sl_calc_line = f"Raw SL:  ${float(sl_raw_usd):.2f}  → Final SL: ${float(sl_usd):.2f}\n"
+
     return (
         f"{banner}\n{_DIV}\n"
         f"{di} {direction} {pair} — {si} {session}\n"
         f"{_DIV}\n"
-        f"◆ Entry:  {fill_price:.{price_dp}f}\n\n"
-        f"✅ TP1:   {tp_price:.{price_dp}f}  (+{tp_p}p | {rr_ratio:.1f}xRR)  ← bot target\n"
-        f"◻  TP2:   {tp2_price:.{price_dp}f}  (+{tp2_p}p | {tp2_rr:.1f}xRR)  ← reference\n"
-        f"✗  SL:    {sl_price:.{price_dp}f}  (-{sl_p}p)\n"
+        f"◆ Entry:  {fill_price:.{price_dp}f}\n"
+        f"{range_line}"
+        f"{sl_calc_line}"
+        f"TP dist: ${float(tp_usd):.2f}  |  RR: 1:{rr_ratio:.2f}\n"
+        f"{_DIV}\n"
+        f"Broker SL/TP check\n"
+        f"  SL: {sl_price:.{price_dp}f}  expected {expected_sl:.{price_dp}f} {sl_ok}\n"
+        f"  TP: {tp_price:.{price_dp}f}  expected {expected_tp:.{price_dp}f} {tp_ok}\n"
         f"{_DIV}\n"
         f"Setup:   {setup}\n"
         f"Score:   {s_str}  |  Spread: {spread_pips}p\n"
@@ -427,6 +446,10 @@ def msg_startup(
     us_start=20, us_end=22, max_total_open=1,
     position_full_usd=100, position_partial_usd=100, session_thresholds=None,
     tg_min_score=1, h1_filter_enabled=True, h1_filter_mode="hard",
+    dry_run=False, daily_loss_limit_usd=150.0,
+    dawn_range_min_usd=15.0, dawn_range_max_usd=80.0,
+    dawn_sl_range_pct=0.50, dawn_tp_range_pct=1.00,
+    sl_min_usd=15.0, sl_max_usd=35.0, max_rr_ratio=2.5,
 ) -> str:
     """Dawn startup message — session breakout flavour.
 
@@ -438,22 +461,30 @@ def msg_startup(
         f"H1 filter: {'✅' if h1_filter_enabled else '⬜'} "
         f"{h1_filter_mode.upper() if h1_filter_enabled else 'OFF'}\n"
     )
+    dry = "ON 🧪" if dry_run else "OFF"
+    daily_loss_line = "Disabled" if not daily_loss_limit_usd else f"${float(daily_loss_limit_usd):.0f}"
     return (
         f"🌅 {version} started\n{_DIV}\n"
-        f"Mode:      {mode}  |  Balance: ${balance:,.2f}\n"
-        f"Pair:      XAU/USD (M15)\n"
-        f"Strategy:  Session Breakout + H1 Trend Filter  |  Cycle: {cycle_minutes} min\n"
-        f"Entry:     Binary — first M15 close beyond prior range\n"
-        f"Size:      ${position_full_usd} per trade (fixed risk)\n"
+        f"Mode:      {mode}  |  Dry run: {dry}  |  Balance: ${balance:,.2f}\n"
+        f"Pair:      XAU/USD  |  Signal TF: M15  |  Trend TF: H1  |  Cycle: {cycle_minutes} min\n"
+        f"Strategy:  Session Breakout + H1 Trend Filter\n"
+        f"Entry:     First completed M15 close beyond prior range\n"
+        f"Size:      ${position_full_usd} risk budget per trade\n"
         f"{h1_line}"
         f"{_DIV}\n"
         f"Entry windows (SGT)\n"
         f"  🇬🇧 15:00–16:30  London open  (range 07:00–15:00)\n"
         f"  🗽 20:30–22:00  NY open      (range 15:00–20:30)\n"
-        f"Range filter: 15–80 points  |  SL 50% × range  |  TP 150% × range\n"
         f"{_DIV}\n"
-        f"Daily caps: {max_losing_day} losses, {max_trades_london + max_trades_us} trades  "
-        f"|  Global: {max_total_open} open  |  Reset: {trading_day_start_hour:02d}:00 SGT"
+        f"SL/TP logic\n"
+        f"  Range: ${float(dawn_range_min_usd):.0f}–${float(dawn_range_max_usd):.0f}\n"
+        f"  Raw SL: {float(dawn_sl_range_pct)*100:.0f}% × range\n"
+        f"  Final SL clamp: ${float(sl_min_usd):.0f}–${float(sl_max_usd):.0f}\n"
+        f"  TP: {float(dawn_tp_range_pct)*100:.0f}% × range  |  RR cap: 1:{float(max_rr_ratio):.1f}\n"
+        f"{_DIV}\n"
+        f"Safety: {max_losing_day} losses/day, {max_trades_london + max_trades_us} trades/day, "
+        f"daily loss stop {daily_loss_line}\n"
+        f"Global: {max_total_open} open  |  Reset: {trading_day_start_hour:02d}:00 SGT"
     )
 
 
