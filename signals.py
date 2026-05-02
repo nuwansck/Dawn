@@ -6,7 +6,7 @@ entry: first M15 candle that closes beyond the range high/low fires.
 
 Windows (Asia/Singapore timezone, configurable via settings.json):
   London breakout:
-    range:    07:00–15:00 SGT  (prior 8 hours — Asian session)
+    range:    07:00–15:00 SGT  (London pre-range)
     entry:    15:00–16:30 SGT  (90-minute window after London open)
   NY breakout:
     range:    15:00–20:30 SGT  (prior 5.5 hours — London + pre-NY)
@@ -20,9 +20,9 @@ Entry:
 Filters:
   1. Range size: must be in [dawn_range_min_usd, dawn_range_max_usd] (15–80)
      Small = noise; wide = already-volatile trap day.
-  2. H1 EMA21 trend filter (reused from Rogue): BUY above, SELL below.
+  2. H1 EMA21 trend filter: BUY above, SELL below.
   3. Spread limit (upstream in bot.py, reused from settings.max_spread_pips).
-  4. News blackout ±30 min (upstream, reused from Rogue's news_filter).
+  4. News blackout ±30 min (upstream news_filter).
   5. Friday cutoff (upstream in bot.py).
 
 SL / TP:
@@ -32,7 +32,7 @@ SL / TP:
 Position size: fixed dawn_position_usd (default $100) per trade.
   units = position_usd / SL_usd
 
-Return value matches Rogue interface so upstream bot.py works unchanged:
+Return value matches the bot.py signal interface:
   (score, direction, details, levels, position_usd)
   score is binary: 0 (no signal/blocked) or 1 (fire trade).
 """

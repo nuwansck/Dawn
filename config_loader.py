@@ -72,8 +72,7 @@ def ensure_persistent_settings() -> Path:
             # Core Dawn v1.4 strategy/risk parameters that must follow the
             # bundled settings.json on deployment. Railway's /data/settings.json
             # persists across deploys, so stale values such as
-            # dawn_tp_range_pct=1.50 or max_rr_ratio=1.5 can otherwise survive
-            # and make Telegram/startup display the wrong SL/TP logic.
+            # stale SL/TP values can otherwise survive across redeploys.
             'sl_mode',
             'tp_mode',
             'dawn_sl_range_pct',
@@ -112,13 +111,12 @@ def ensure_persistent_settings() -> Path:
 
     # First boot — bootstrap the persistent file from bundled defaults.
     default_settings.setdefault('bot_name', 'Dawn v1.4')
-    default_settings.setdefault('max_rr_ratio', 3.0)
+    default_settings.setdefault('max_rr_ratio', 2.5)
     default_settings.setdefault('sl_min_atr_mult', 0.8)
     default_settings.setdefault('h1_trend_filter_enabled', True)
     default_settings.setdefault('h1_ema_period', 21)
     default_settings.setdefault('require_candle_close', True)
     default_settings.setdefault('sl_direction_cooldown_min', 60)
-    default_settings.setdefault('asian_session_enabled',  True)
     default_settings.setdefault('london_session_enabled', True)
     default_settings.setdefault('us_session_enabled', True)
     default_settings.setdefault('session_report_hour_sgt', 2)
@@ -167,20 +165,17 @@ def load_settings() -> dict:
     original_keys = set(settings.keys())
 
     settings.setdefault('bot_name', 'Dawn v1.4')
-    settings.setdefault('max_rr_ratio', 3.0)
+    settings.setdefault('max_rr_ratio', 2.5)
     settings.setdefault('sl_min_atr_mult', 0.8)
     settings.setdefault('h1_trend_filter_enabled', True)
     settings.setdefault('h1_ema_period', 21)
     settings.setdefault('require_candle_close', True)
     settings.setdefault('sl_direction_cooldown_min', 60)
-    settings.setdefault('asian_session_enabled',  True)
     settings.setdefault('london_session_enabled', True)
     settings.setdefault('us_session_enabled', True)
-    settings.setdefault('asian_report_hour_sgt',    16)
-    settings.setdefault('asian_report_minute_sgt',   5)
-    settings.setdefault('london_report_hour_sgt',   21)
-    settings.setdefault('london_report_minute_sgt',  5)
-    settings.setdefault('us_report_hour_sgt',         1)
+    settings.setdefault('london_report_hour_sgt',   16)
+    settings.setdefault('london_report_minute_sgt', 35)
+    settings.setdefault('us_report_hour_sgt',        22)
     settings.setdefault('us_report_minute_sgt',       5)
     settings.setdefault('session_report_minute_sgt', 0)
     settings.setdefault('version', '1.4')
@@ -199,10 +194,9 @@ def load_settings() -> dict:
     settings.setdefault('trading_day_start_hour_sgt', 8)
     settings.setdefault('max_losing_trades_session', 999)
     settings.setdefault('max_trades_london', 999)        
-    settings.setdefault('max_trades_asian', 5)
     settings.setdefault('max_trades_us', 999)            
-    settings.setdefault('session_start_hour_sgt', 16)
-    settings.setdefault('session_end_hour_sgt', 1)
+    settings.setdefault('session_start_hour_sgt', 15)
+    settings.setdefault('session_end_hour_sgt', 22)
 
     if set(settings.keys()) != original_keys:
         _write_json(SETTINGS_FILE, settings)

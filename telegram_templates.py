@@ -72,7 +72,7 @@ def msg_signal_update(
     di    = _dir_icon(direction)
     nline = f"⚠️  News penalty: {news_penalty:+d}\n" if news_penalty else ""
 
-    # Dawn v1.4: prefer range_size line if provided; fall back to CPR for Rogue compat.
+    # Dawn v1.4: prefer range_size line if provided.
     context_line = (
         f"Range size: {range_size:.2f} points"
         if range_size is not None
@@ -453,9 +453,7 @@ def msg_startup(
 ) -> str:
     """Dawn startup message — session breakout flavour.
 
-    Signature preserved from Rogue so scheduler.py can call it unchanged.
-    Some parameters (dead_zone_*, tokyo_*, us_early_end, score tiers) are
-    effectively unused for Dawn's two-window strategy but kept for compat.
+    Startup message for Dawn v1.4.
     """
     h1_line = (
         f"H1 filter: {'✅' if h1_filter_enabled else '⬜'} "
@@ -659,7 +657,7 @@ def msg_monthly_report(month_label, stats, sessions, setups, scores,
 # ── 18. Session performance report ──────────────────────────────────────────
 
 def msg_session_report(
-    session_name: str,       # "Asian", "London", "US"
+    session_name: str,       # "London" or "US"
     banner: str,             # e.g. "🌏 ASIAN"
     session_stats: dict,     # _stats() output for this session window
     report_time: str,        # e.g. "16:05 SGT"

@@ -1,46 +1,40 @@
-# Dawn v1.4 Final — XAU/USD M15 Session Breakout Bot
+# Dawn v1.4 FINAL
 
-Dawn v1.4 is a demo-ready OANDA bot for XAU/USD session range breakouts.
+Automated OANDA DEMO bot for XAU/USD session breakouts.
 
 ## Strategy
 
-| Item | Value |
-|---|---|
-| Instrument | XAU/USD (`XAU_USD`) |
-| Signal timeframe | M15 |
-| Trend filter | H1 EMA21 |
-| Bot cycle | 5 minutes |
-| Entry type | First completed M15 candle close beyond prior range |
-
-## Entry windows — SGT
-
-| Window | Entry time | Range used |
-|---|---:|---:|
-| London | 15:00–16:30 | 07:00–15:00 |
-| New York | 20:30–22:00 | 15:00–20:30 |
+- Instrument: XAU/USD (`XAU_USD`)
+- Signal timeframe: M15
+- Trend filter: H1 EMA21 hard filter
+- Entry: first completed M15 candle close beyond the prior session range
+- London window: 15:00-16:30 SGT, range 07:00-15:00 SGT
+- NY window: 20:30-22:00 SGT, range 15:00-20:30 SGT
 
 ## SL/TP
 
-| Setting | Value |
-|---|---:|
-| Range filter | $15–$80 |
-| Raw SL | 50% x range |
-| Final SL clamp | $15–$35 |
-| TP | 100% x range |
-| RR cap | 1:2.5 |
+- Range filter: $15-$80
+- SL: 50% x range, clamped to $15-$35
+- TP: 100% x range
+- RR cap: 1:2.5
 
 ## Safety
 
-- Demo mode by default.
-- Max 1 open trade.
-- Max 2 trades/day.
-- Max 2 losses/day.
-- Daily loss stop: $150.
-- News filter enabled.
-- Telegram startup and trade alerts enabled.
+- OANDA mode: DEMO
+- Max open trades: 1
+- Max trades/day: 2
+- Max losing trades/day: 2
+- Daily loss stop: $150
+- News blackout: 30 minutes before/after high-impact USD/gold news
+- Friday cutoff: 22:00 SGT
 
-## v1.4 cleanup
+## Deploy
 
-- Fixed startup duplication so Telegram shows `Dawn v1.4 started`, not `Dawn v1.3 v1.3 started`.
-- Removed dry-run mode from code, settings, scheduler, and Telegram templates.
-- Removed old patch-note files and stale documentation from the ZIP.
+Use the included `Procfile`, `railway.json`, and `requirements.txt`. Configure secrets using environment variables:
+
+- `OANDA_API_KEY`
+- `OANDA_ACCOUNT_ID`
+- `TELEGRAM_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+Do not commit `secrets.json`.

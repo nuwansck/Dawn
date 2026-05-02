@@ -1,57 +1,11 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.4
+"""Dawn v1.4 FINAL — Automated XAU/USD M15 Session Breakout Bot.
 
-Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
-the first 90 minutes after London open (15:00–16:30 SGT) and NY open
-(20:30–22:00 SGT). One trade per entry window max.
-
-Strategy:
-  Signal engine:   Session range breakout (close beyond prior-session high/low)
-  Trend filter:    H1 EMA21 HARD — blocks counter-trend entries
-  Entry trigger:   Binary — no score gating, no confluence scoring
-  Position sizing: Fixed $100 risk per trade
-
-Risk:
-  SL = range_size × 0.50  (clamped $15–$35)
-  TP = range_size × 1.00  (realistic M15 target; capped by max_rr_ratio)
-
-Entry guards (inherited from Rogue v1.4 infrastructure):
-  Range-size filter  — 15 ≤ range ≤ 80 points (reject noise & volatile days)
-  H1 EMA21 filter    — counter-trend HARD block
-  Direction cooldown — 120 min after ANY SL
-  Consecutive SL     — hard blocks after 1 SL in same direction
-  News filter        — ±30 min around high-impact USD events
-  Friday cutoff      — no entries after 22:00 SGT Friday
-  Same-setup guard   — one trade per entry window
-
-Risk controls:
-  Max trades/day         : 2 (1 London + 1 NY)
-  Max losses/day         : 2 (hard stop)
-  Max losses/session     : 2
-  Direction cooldown     : 120 min
-  Max concurrent trades  : 1
-
-v1.0 — initial Dawn release. Built on Rogue v1.4 infrastructure with:
-  1. Rewritten signals.py — session range breakout replaces CPR scoring
-  2. New sl_mode = "range_based" and tp_mode = "range_based"
-  3. Fixed $100 position sizing (no score-to-size tiers)
-  4. Dawn-specific settings keys (dawn_range_min/max_usd, dawn_sl/tp_range_pct)
-  5. Spread-adjusted breakeven preserved from Rogue v1.4
-
-v1.1 — bug fixes surfaced in first deploy audit:
-  1. CRITICAL (1 of 2) — flipped session_only: false so bot.py's legacy SESSIONS tuple
-     (8-15 Asian / 16-20 London / 21-23 US) no longer pre-gates Dawn trades.
-     The 15:00-15:59 SGT hour (first hour of Dawn's London window, highest-edge)
-     was being blocked because hour 15 falls in the legacy Asian slot which was
-     disabled in settings.
-  2. CRITICAL (2 of 2) — raised max_trades_asian from 0 to 1. Even with
-     session_only: false, bot.py:1436's window_cap check (0 >= 0 is True) would
-     still block at hour 15. Both fixes required.
-  3. Dawn now gates entries solely via signals.py's _active_entry_window — the
-     correct layer for strategy-specific timing.
-  4. Replaced "CPR width" display in signal-update Telegram with "Range size".
-  5. Made same-setup guard Dawn-aware — when levels lack a pivot (non-CPR
-     strategies), the guard now relies on setup-name + direction match
-     instead of pivot equality (which was always False for Dawn → guard never fired).
+Instrument: XAU/USD (`XAU_USD`)
+Entry windows: London 15:00-16:30 SGT and NY 20:30-22:00 SGT
+Signal: first completed M15 candle close beyond the prior session range
+Trend filter: H1 EMA21 hard filter
+SL/TP: SL = 50% x range clamped to $15-$35; TP = 100% x range
+Safety: max 1 open trade, max 2 trades/day, max 2 losses/day, daily loss stop.
 """
 
 import json
@@ -105,9 +59,8 @@ SESSIONS = [
     ("US Window",     "US",     dtime(20, 30), dtime(22, 0),  1),
 ]
 
-# v4.4 — Three sessions: Asian, London, US
+# Dawn v1.4 — two active trading windows: London and NY/US.
 SESSION_BANNERS = {
-    "Asian":  "🌏 ASIAN",
     "London": "🇬🇧 LONDON",
     "US":     "🗽 US",
 }
@@ -164,7 +117,7 @@ def validate_settings(settings: dict) -> dict:
     # the bot on startup. The old hard-fail on missing required keys is replaced
     # by setdefault — a missing key is treated the same as any other default.
     # v4.4 — Three sessions active
-    settings.setdefault("spread_limits",             {"Asian": 150, "London": 140, "US": 140})
+    settings.setdefault("spread_limits",             {"London": 100, "US": 100})
     settings.setdefault("max_trades_day",            2)     # v1.4 — Dawn has 2 entry windows/day
     settings.setdefault("max_losing_trades_day",     999)   # v4.0-uncapped
     settings.setdefault("sl_mode",                   "atr_based")   # v4.0
@@ -206,7 +159,7 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("max_trades_us",              1)
     settings.setdefault("max_spread_pips",            150)
     settings.setdefault("session_only",               True)
-    settings.setdefault("session_thresholds",         {"Asian": 4, "London": 4, "US": 4})
+    settings.setdefault("session_thresholds",         {"London": 1, "US": 1})
     settings.setdefault("news_filter_enabled",        True)
     settings.setdefault("news_block_before_min",      30)
     settings.setdefault("news_block_after_min",       30)
@@ -338,9 +291,6 @@ def is_dead_zone_time(now_sgt: datetime, settings: dict | None = None) -> bool:
     return True
 
 def get_window_key(session_name: str | None) -> str | None:
-    # v4.4 — window keys map to macro session names
-    if session_name == "Asian Window":
-        return "Asian"
     if session_name == "London Window":
         return "London"
     if session_name == "US Window":
@@ -349,20 +299,15 @@ def get_window_key(session_name: str | None) -> str | None:
 
 
 def get_window_trade_cap(window_key: str | None, settings: dict) -> int | None:
-    # v4.4 — separate caps per session including Asian
-    if window_key == "Asian":
-        return int(settings.get("max_trades_asian", 5))
     if window_key == "London":
-        return int(settings.get("max_trades_london", 10))
+        return int(settings.get("max_trades_london", 1))
     if window_key == "US":
-        return int(settings.get("max_trades_us", 10))
+        return int(settings.get("max_trades_us", 1))
     return None
 
 
 def window_trade_count(history: list, today_str: str, window_key: str) -> int:
-    # v4.4 — Three sessions tracked independently
     aliases = {
-        "Asian":  {"Asian", "Asian Window"},
         "London": {"London", "London Window"},
         "US":     {"US", "US Window"},
     }
@@ -415,7 +360,7 @@ def get_trading_day(now_sgt: "datetime", day_start_hour: int = 8) -> str:
     the current calendar date still belongs to the *previous* trading day,
     so losses from e.g. 00:30 SGT count against yesterday's cap — not today's.
 
-    This aligns the loss cap with the Asian → London → US session block
+    This aligns the loss cap with Dawn's London → NY session block
     (08:00–23:00 SGT) and prevents mid-night reconcile artefacts from
     poisoning a fresh session's counter (v4.2).
     """
@@ -430,7 +375,7 @@ def session_losses(history: list, session_name: str, trading_day: str) -> int:
     Used for the per-session loss sub-cap (v4.2): 2 losses inside one session
     stops entries for that session; the next session gets a clean counter.
     session_name should match the macro-session stored on each trade record
-    ('Asian' | 'London' | 'US').
+    ('London' | 'US').
     """
     count = 0
     for t in history:
@@ -976,7 +921,7 @@ def backfill_pnl(history: list, trader, alert, settings: dict) -> list:
                     changed = True
                     log.info("Back-filled P&L trade %s: $%.2f", trade_id, pnl)
 
-                    # Rogue v1.0: set direction cooldown immediately on SL close.
+                    # legacy framework: set direction cooldown immediately on SL close.
                     # This ensures the next cycle sees the block even if the guard
                     # streak check hasn't been evaluated yet (fixes the "1st SL has
                     # no cooldown" bug from v5.3).
@@ -1434,23 +1379,16 @@ def _guard_phase(db, run_id, settings, alert, trader, history, now_sgt, today, d
         db.finish_cycle(run_id, status="SKIPPED", summary={"stage": "daily_caps", "reason": "loss_cap"})
         return None
 
-    # v4.2 — Per-session loss sub-cap.
-    # 2 losses in a single session (Asian/London/US) pause entries for that
-    # session only. The next session starts with a clean counter; the overall
-    # 3-loss daily hard stop still applies across all sessions.
+    # Per-session loss sub-cap.
+    # Losses in one Dawn window pause that window only; the daily hard stop
+    # still applies across both London and NY.
     if session is not None:
         max_session_losses = int(settings.get("max_losing_trades_session", 2))
         sess_losses = session_losses(history, session, today)
         if sess_losses >= max_session_losses:
-            # v4.2 — Asian disabled; only London and US
-            # v4.2 — derive next-session display strings from settings, not hardcoded
-            _us_start    = int(settings.get("session_end_hour_sgt", 1))   # US ends at 01:00
-            _lon_start   = int(settings.get("session_start_hour_sgt", 16))
-            _us_show     = 21  # US Window starts 21:00 SGT (within session block)
             next_sessions = {
-                "Asian":  f"London ({_lon_start:02d}:00 SGT)",
-                "London": f"US ({_us_show:02d}:00 SGT)",
-                "US":     f"London ({_lon_start:02d}:00 SGT next day)",
+                "London": "NY (20:30 SGT)",
+                "US":     "London (15:00 SGT next trading day)",
             }
             msg = msg_session_cap(
                 session=session, count=sess_losses, limit=max_session_losses,
@@ -1744,12 +1682,12 @@ def _signal_phase(db, run_id, settings, alert, trader, history, now_sgt, today, 
                                  "min_rr": _min_rr, "reason": _rr_reason})
         return None
 
-    # Rogue v1.0 — Consecutive-direction loss guard.
+    # legacy framework — Consecutive-direction loss guard.
     # After consecutive_sl_guard (default 1) SL hits in the same direction,
     # HARD BLOCK that direction. No score bypass. Cooldown fires after EVERY SL.
     #
     # v5.3 bug: cooldown only fired after 2nd SL — by then the 2nd loss already happened.
-    # Rogue fix: cooldown fires after the FIRST SL, blocks for sl_direction_cooldown_min.
+    # Framework fix: cooldown fires after the FIRST SL, blocks for sl_direction_cooldown_min.
     _guard_n          = int(settings.get("consecutive_sl_guard", 1))
     _sl_streak        = _count_consecutive_sl(history, direction)
     _dir_cooldown_min = int(settings.get("sl_direction_cooldown_min", 120))

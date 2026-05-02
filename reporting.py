@@ -262,21 +262,15 @@ def _is_first_monday_of_month(now: datetime) -> bool:
 def send_session_report(session_key: str) -> None:
     """Send a performance summary for a single completed session.
 
-    session_key: "Asian" | "London" | "US"
-    Called ~5 min after each session closes so all trades are settled.
+    session_key: "London" | "US"
+    Called shortly after each Dawn entry window closes.
     """
     from config_loader import load_settings
-    _BANNERS = {"Asian": "🌏 ASIAN", "London": "🇬🇧 LONDON", "US": "🗽 US"}
-    _NEXT    = {
-        "Asian":  "London",
-        "London": "US",
-        "US":     "Asian (tomorrow)",
-    }
-    # Session windows in SGT (start_hour, end_hour inclusive)
+    _BANNERS = {"London": "🇬🇧 LONDON", "US": "🗽 US"}
+    # Dawn entry windows in SGT.
     _WINDOWS = {
-        "Asian":  (8,  15),
-        "London": (16, 20),
-        "US":     (21, 0),   # 21–23 + 00
+        "London": (15, 16),
+        "US":     (20, 22),
     }
     try:
         settings = load_settings()
@@ -300,11 +294,10 @@ def send_session_report(session_key: str) -> None:
         sess_trades = _trades_in_window(filled, sess_start, sess_end)
         sess_stats  = _stats(sess_trades)
 
-        # Next session time for display
+        # Next Dawn entry window for display.
         _next_times = {
-            "Asian":  f"London ({int(settings.get('session_start_hour_sgt', 16)):02d}:00 SGT)",
-            "London": "US (21:00 SGT)",
-            "US":     f"Asian (08:00 SGT tomorrow)",
+            "London": "NY (20:30 SGT)",
+            "US":     "London (15:00 SGT next trading day)",
         }
         next_sess = _next_times.get(session_key, "")
 
@@ -324,7 +317,6 @@ def send_session_report(session_key: str) -> None:
         log.exception("send_session_report(%s) error: %s", session_key, exc)
 
 
-def send_asian_session_report()  -> None: send_session_report("Asian")
 def send_london_session_report() -> None: send_session_report("London")
 def send_us_session_report()     -> None: send_session_report("US")
 

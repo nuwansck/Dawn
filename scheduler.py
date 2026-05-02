@@ -14,7 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from bot import run_bot_cycle
 from oanda_trader import OandaTrader
 from reporting import (send_daily_report, send_weekly_report, send_monthly_report,
-                       send_asian_session_report, send_london_session_report, send_us_session_report)
+                       send_london_session_report, send_us_session_report)
 from telegram_alert import TelegramAlert
 from telegram_templates import msg_startup
 from config_loader import DATA_DIR, load_settings
@@ -150,20 +150,11 @@ def main():
         max_instances=1,
         coalesce=True,
     )
-    # v4.4 — per-session summary reports (~5 min after each session closes)
-    _asian_rpt_h  = int(settings.get('asian_report_hour_sgt',   16))
-    _asian_rpt_m  = int(settings.get('asian_report_minute_sgt',  5))
-    _lon_rpt_h    = int(settings.get('london_report_hour_sgt',  21))
-    _lon_rpt_m    = int(settings.get('london_report_minute_sgt',  5))
-    _us_rpt_h     = int(settings.get('us_report_hour_sgt',       1))
+    # Per-session summary reports after Dawn's two entry windows close.
+    _lon_rpt_h    = int(settings.get('london_report_hour_sgt',  16))
+    _lon_rpt_m    = int(settings.get('london_report_minute_sgt', 35))
+    _us_rpt_h     = int(settings.get('us_report_hour_sgt',      22))
     _us_rpt_m     = int(settings.get('us_report_minute_sgt',     5))
-    scheduler.add_job(
-        send_asian_session_report,
-        CronTrigger(day_of_week='mon-fri', hour=_asian_rpt_h, minute=_asian_rpt_m, timezone=SG_TZ),
-        id='asian_session_report',
-        name='Asian session performance report',
-        max_instances=1, coalesce=True,
-    )
     scheduler.add_job(
         send_london_session_report,
         CronTrigger(day_of_week='mon-fri', hour=_lon_rpt_h, minute=_lon_rpt_m, timezone=SG_TZ),
@@ -220,7 +211,7 @@ def main():
             cycle_minutes=int(settings.get('cycle_minutes', 5)),
             max_trades_london=int(settings.get('max_trades_london', 10)),
             max_trades_us=int(settings.get('max_trades_us', 10)),
-            max_trades_tokyo=int(settings.get('max_trades_asian', 5)),
+            max_trades_tokyo=0,
             max_losing_day=int(settings.get('max_losing_trades_day', 8)),
             trading_day_start_hour=int(settings.get('trading_day_start_hour_sgt', 8)),
             tokyo_start=8, tokyo_end=15,

@@ -201,7 +201,7 @@ def _fetch_ff_events(url: str, suppress_404: bool = False) -> tuple[list, int | 
             )
             return events, 200
         if r.status_code == 404 and suppress_404:
-            log.info("FF next-week feed not yet published (HTTP 404) — keeping current cache.")
+            log.debug("FF next-week feed not yet published (HTTP 404) — keeping current cache.")
             return [], 404
         log.warning("Forex Factory fetch HTTP %s from %s", r.status_code, url)
         return [], r.status_code
