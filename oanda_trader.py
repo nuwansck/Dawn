@@ -48,9 +48,9 @@ class OandaTrader:
         }
         self.session = make_oanda_session(allowed_methods=["GET", "POST", "PUT"])
 
-        masked = f"{self.api_key[:8]}****" if self.api_key else "(missing)"
+        key_status = "configured" if self.api_key else "missing"
         log.info("OANDA | Mode: %s", "DEMO" if demo else "LIVE")
-        log.info("Account: %s | API Key: %s", self.account_id, masked)
+        log.info("Account: %s | API Key: %s", self.account_id, key_status)
 
         # Instrument spec cache — populated lazily by get_instrument_specs().
         # Defined here in __init__ so it is always present on the instance

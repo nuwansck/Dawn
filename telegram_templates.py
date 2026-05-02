@@ -134,8 +134,8 @@ def msg_trade_opened(
     sl_price, tp_price, sl_usd, tp_usd, units, position_usd,
     rr_ratio, cpr_width_pct, spread_pips, score, balance, demo,
     news_penalty=0, raw_score=None, free_margin=None,
-    required_margin=None, margin_mode="NORMAL", margin_usage_pct=None,
-    price_dp=5, tp2_rr=3.0,
+    required_margin=None, requested_units=None, margin_mode="NORMAL", margin_usage_pct=None,
+    price_dp=2, tp2_rr=3.0,
     h1_trend="UNKNOWN", h1_aligned=True,
 ) -> str:
     bot, pair = _split_banner(banner)
@@ -154,7 +154,20 @@ def msg_trade_opened(
         fill_price + sl_usd * tp2_rr if direction == "BUY"
         else fill_price - sl_usd * tp2_rr, price_dp
     )
-    units_fmt = f"{int(units):,}" if units >= 1000 else str(int(units))
+    units_fmt = f"{units:,.1f}" if float(units) % 1 else f"{int(units):,}"
+    requested_units = units if requested_units is None else requested_units
+    margin_lines = ""
+    if free_margin is not None or required_margin is not None or margin_mode not in (None, "NORMAL"):
+        margin_lines += f"Margin:  {margin_mode or 'NORMAL'}"
+        if required_margin is not None:
+            margin_lines += f" | Req: ${float(required_margin):.2f}"
+        if free_margin is not None:
+            margin_lines += f" | Free: ${float(free_margin):.2f}"
+        if margin_usage_pct is not None:
+            margin_lines += f" | Use: {float(margin_usage_pct):.1f}%"
+        margin_lines += "\n"
+    if requested_units is not None and float(requested_units) != float(units):
+        margin_lines += f"Units adjusted: {requested_units:g} → {units:g}\n"
 
     return (
         f"{banner}\n{_DIV}\n"
@@ -169,6 +182,7 @@ def msg_trade_opened(
         f"Score:   {s_str}  |  Spread: {spread_pips}p\n"
         + (f"H1:      {'🟢' if h1_aligned else '🔴'} {h1_trend}  ({'aligned' if h1_aligned else 'counter-trend ⚠️'})\n"
            if h1_trend not in ('UNKNOWN', 'DISABLED') else "")
+        + margin_lines
         + f"Units:   {units_fmt}  |  Risk: {_pos_label(position_usd)}  |  Mode: {mode}"
     )
 
@@ -176,7 +190,7 @@ def msg_trade_opened(
 # ── 3. Breakeven ──────────────────────────────────────────────────────────────
 
 def msg_breakeven(trade_id, direction, entry, trigger_price, trigger_dist,
-                  current_price, unrealized_pnl, demo, price_dp=5) -> str:
+                  current_price, unrealized_pnl, demo, price_dp=2) -> str:
     mode = "DEMO" if demo else "LIVE"
     return (
         f"🔒 Break-Even Activated\n{_DIV}\n"
@@ -264,17 +278,27 @@ def msg_cooldown_started(streak, cooldown_until_sgt, session_name="",
 # ── 8. Daily cap ──────────────────────────────────────────────────────────────
 
 def msg_daily_cap(cap_type, count, limit, window="", daily_pnl=None,
-                  session_name="", last_loss_time_sgt="", reset_time_sgt="") -> str:
+                  session_name="", last_loss_time_sgt="", reset_time_sgt="",
+                  day_start_sgt="", day_end_sgt="", day_reset_sgt="") -> str:
+    """Daily/window cap alert.
+
+    v1.2.1 accepts legacy bot.py keyword names day_start_sgt/day_end_sgt/
+    day_reset_sgt so cap alerts cannot crash the cycle when a safety stop fires.
+    """
+    if day_reset_sgt and not reset_time_sgt:
+        reset_time_sgt = day_reset_sgt
     label  = ("Max losing trades" if cap_type == "losing_trades"
-              else ("Max trades/day" if cap_type == "total_trades" else f"{window} cap"))
-    footer = "Resuming next trading day" if cap_type in ("losing_trades","total_trades") else "Resuming next window"
+              else ("Max trades/day" if cap_type == "total_trades"
+                    else ("Daily dollar loss stop" if cap_type == "daily_loss_usd" else f"{window} cap")))
+    footer = "Resuming next trading day" if cap_type in ("losing_trades","total_trades","daily_loss_usd") else "Resuming next window"
     pline  = f"Day P&L: ${daily_pnl:+.2f}\n" if daily_pnl is not None else ""
     rline  = f"Resets:  {reset_time_sgt}\n"   if reset_time_sgt else ""
+    wline  = f"Window:  {day_start_sgt} → {day_end_sgt} SGT\n" if day_start_sgt and day_end_sgt else ""
     return (
         f"🛑 Cap Reached\n{_DIV}\n"
         f"Type:  {label}\n"
         f"Count: {count}/{limit}\n"
-        f"{pline}{rline}"
+        f"{pline}{wline}{rline}"
         f"{footer}"
     )
 
@@ -294,11 +318,19 @@ def msg_new_day_resume(prev_day_pnl=None, prev_day_trades=0, london_open_sgt="16
 
 # ── 8c. Session cap ───────────────────────────────────────────────────────────
 
-def msg_session_cap(session_name, session_losses, session_limit,
-                    day_losses, day_limit, next_session) -> str:
+def msg_session_cap(session_name=None, session_losses=None, session_limit=None,
+                    day_losses=0, day_limit=0, next_session="", **kwargs) -> str:
+    """Session cap alert with backward-compatible aliases.
+
+    bot.py historically called this as msg_session_cap(session=..., count=..., limit=...).
+    Accept both styles so safety-cap alerts never crash trading management.
+    """
+    session_name = session_name or kwargs.get("session") or "Session"
+    session_losses = session_losses if session_losses is not None else kwargs.get("count", 0)
+    session_limit = session_limit if session_limit is not None else kwargs.get("limit", 0)
     si  = _session_icon(session_name)
     ni  = _session_icon(next_session)
-    rem = max(0, day_limit - day_losses)
+    rem = max(0, int(day_limit or 0) - int(day_losses or 0))
     return (
         f"🔶 Session Cap\n{_DIV}\n"
         f"{si} {session_name}: {session_losses}/{session_limit} losses  (paused)\n"

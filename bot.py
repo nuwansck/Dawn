@@ -1,4 +1,4 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.1
+"""Dawn — Automated XAU/USD Session Breakout Bot | v1.2.1
 
 Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
 the first 90 minutes after London open (15:00–16:30 SGT) and NY open
@@ -57,7 +57,7 @@ v1.1 — bug fixes surfaced in first deploy audit:
 import json
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 from pathlib import Path
 
 import pytz
@@ -97,15 +97,12 @@ HISTORY_FILE = TRADE_HISTORY_FILE
 HISTORY_DAYS = 90
 # Removed: ARCHIVE_FILE — archival removed; 90-day rolling window stored in trade_history.json
 
-# v4.2 — 9-hour trading window: London open (16:00 SGT) → NY morning close (00:59 SGT)
-# v4.4 — All 3 sessions enabled: Asian (08–15), London (16–20), US (21–00).
-# 2-week evaluation to determine Asian session viability for CPR breakouts.
-# Each tuple: (window_name, macro_session, start_hour, end_hour, fallback_threshold)
+# Dawn v1.2.1 — strategy windows are minute-aware and aligned with signals.py.
+# Each tuple: (window_name, macro_session, start_time, end_time, fallback_threshold).
+# London: 15:00–16:30 SGT | NY/US: 20:30–22:00 SGT.
 SESSIONS = [
-    ("Asian Window",  "Asian",   8, 15, 3),   # 08:00–15:59 SGT (00:00–07:59 GMT)
-    ("London Window", "London", 16, 20, 3),   # 16:00–20:59 SGT (08:00–13:00 GMT)
-    ("US Window",     "US",     21, 23, 3),   # 21:00–23:59 SGT (13:00–16:00 EDT)
-    ("US Window",     "US",      0,  0, 3),   # 00:00–00:59 SGT (16:00–17:00 EDT)
+    ("London Window", "London", dtime(15, 0), dtime(16, 30), 1),
+    ("US Window",     "US",     dtime(20, 30), dtime(22, 0),  1),
 ]
 
 # v4.4 — Three sessions: Asian, London, US
@@ -189,6 +186,8 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("sl_max_usd",                40.0)          # v4.0 — raised from 20.0
     settings.setdefault("fixed_sl_usd",              20.0)          # v4.0 — raised from 5.0
     settings.setdefault("breakeven_trigger_usd",     15.0)          # v4.0 — raised from 3.0
+    settings.setdefault("dry_run",                   False)         # v1.2.1 — signal/order simulation; no broker order
+    settings.setdefault("daily_loss_limit_usd",      0.0)           # v1.2.1 — 0 disables dollar loss stop
     settings.setdefault("sl_pct",                   0.0025)
     settings.setdefault("tp_pct",                   0.0075)
     settings.setdefault("margin_safety_factor",      0.6)
@@ -299,37 +298,45 @@ def prune_old_trades(history: list) -> list:
 
 # ── Session helpers ────────────────────────────────────────────────────────────
 
+def _time_in_range(current: dtime, start: dtime, end: dtime) -> bool:
+    """Return True when current is inside a possibly-midnight-wrapping time range."""
+    if start <= end:
+        return start <= current <= end
+    return current >= start or current <= end
+
+
 def get_session(now: datetime, settings: dict = None):
-    h = now.hour
+    """Return the active Dawn window.
+
+    v1.2.1: this is now minute-aware and matches signals.py's Dawn windows:
+    London 15:00–16:30 SGT and US/NY 20:30–22:00 SGT.
+    """
+    current = now.time()
     session_thresholds = (settings or {}).get("session_thresholds", {})
-    # v4.4 — per-session enable/disable flags (Asian added)
     _enabled = {
-        "Asian":  bool((settings or {}).get("asian_session_enabled",  True)),
         "London": bool((settings or {}).get("london_session_enabled", True)),
-        "US":     bool((settings or {}).get("us_session_enabled",     True)),
+        "US":     bool((settings or {}).get("us_session_enabled", True)),
     }
     for name, macro, start, end, fallback_thr in SESSIONS:
-        if start <= h <= end:
+        if _time_in_range(current, start, end):
             if not _enabled.get(macro, True):
-                return None, None, None  # session disabled
+                return None, None, None
             thr = int(session_thresholds.get(macro, fallback_thr))
             return name, macro, thr
     return None, None, None
 
 
 def is_dead_zone_time(now_sgt: datetime, settings: dict | None = None) -> bool:
-    # v4.4 — dead zone is any hour not covered by an enabled session in SESSIONS tuple.
-    h = now_sgt.hour
+    """Dead zone = outside Dawn's enabled minute-aware entry windows."""
+    current = now_sgt.time()
     _enabled = {
-        "Asian":  bool((settings or {}).get("asian_session_enabled",  True)),
         "London": bool((settings or {}).get("london_session_enabled", True)),
-        "US":     bool((settings or {}).get("us_session_enabled",     True)),
+        "US":     bool((settings or {}).get("us_session_enabled", True)),
     }
     for _, macro, start, end, _ in SESSIONS:
-        if _enabled.get(macro, True) and start <= h <= end:
+        if _enabled.get(macro, True) and _time_in_range(current, start, end):
             return False
     return True
-
 
 def get_window_key(session_name: str | None) -> str | None:
     # v4.4 — window keys map to macro session names
@@ -795,19 +802,31 @@ def send_once_per_state(alert, cache: dict, key: str, value: str, message: str):
 
 # ── Break-even management ──────────────────────────────────────────────────────
 
+def _mark_trade_missing(trade: dict, reason: str) -> None:
+    """Flag a local trade that OANDA no longer reports as open.
+
+    Do not change status away from FILLED here because reporting/backfill code uses
+    FILLED records. Reconciliation/backfill can later add realized P&L and closure
+    fields without losing the original entry record.
+    """
+    trade["broker_missing"] = True
+    trade["needs_reconcile"] = True
+    trade["missing_reason"] = reason
+    trade["missing_detected_at_sgt"] = datetime.now(SGT).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def check_breakeven(history: list, trader, alert, settings: dict):
-    """Tiered exit management — v4.1.
+    """Tiered exit management.
 
     Stage 1 (at 1x SL profit):
       - Partial-close 50% of the position to lock realized profit.
       - Move SL to breakeven so the runner is risk-free.
 
-    Stage 2:
-      - The server-side trailing stop (set at order placement) handles
-        the runner automatically — no further polling needed.
-
-    The ``breakeven_moved`` flag gates both stages so they fire at most
-    once per trade.
+    v1.2.1 hardening:
+      - Uses msg_breakeven(trigger_dist=...) to fix the runtime crash.
+      - Saves trade state before Telegram, so an alert failure cannot corrupt
+        trade-management state.
+      - Flags broker-missing trades for reconciliation instead of retrying forever.
     """
     demo    = settings.get("demo_mode", True)
     sl_min  = float(settings.get("sl_min_usd", 20.0))
@@ -830,6 +849,10 @@ def check_breakeven(history: list, trader, alert, settings: dict):
 
         open_trade = trader.get_open_trade(str(trade_id))
         if open_trade is None:
+            if not trade.get("broker_missing"):
+                _mark_trade_missing(trade, "not_returned_by_get_open_trade")
+                changed = True
+                log.info("Trade %s is not open at broker; flagged for reconciliation", trade_id)
             continue
 
         try:
@@ -841,9 +864,7 @@ def check_breakeven(history: list, trader, alert, settings: dict):
         if unrealized_pnl < sl_usd:
             continue
 
-        trigger_price = (
-            entry + sl_usd if direction == "BUY" else entry - sl_usd
-        )
+        trigger_price = entry + sl_usd if direction == "BUY" else entry - sl_usd
 
         # Stage 1a: partial close 50%
         partial_ok = False
@@ -853,22 +874,21 @@ def check_breakeven(history: list, trader, alert, settings: dict):
             partial_ok   = close_result.get("success", False)
             if partial_ok:
                 realized = close_result.get("realized_pnl", 0)
+                trade["partial_closed_units"] = half_units
+                trade["partial_realized_pnl_usd"] = realized
                 log.info(
                     "Partial close %.1f units | trade %s | unrealized=+$%.2f | realized=+$%.2f",
                     half_units, trade_id, unrealized_pnl, realized,
                 )
             else:
-                log.warning(
-                    "Partial close failed for trade %s: %s",
-                    trade_id, close_result.get("error"),
-                )
+                err = str(close_result.get("error", ""))
+                log.warning("Partial close failed for trade %s: %s", trade_id, err)
+                if "No Trade as specified exists" in err:
+                    _mark_trade_missing(trade, "partial_close_no_trade")
+                    changed = True
+                    continue
 
-        # Stage 1b: move SL to breakeven on remaining position
-        # v1.3 — include spread in BE price so the trade is TRULY breakeven after
-        # OANDA's bid-ask cost (not just paper-BE that nets a small loss).
-        # For BUY: BE price = entry + spread (stop-out returns to actual entry)
-        # For SELL: BE price = entry − spread (same logic, inverse direction)
-        # Uses spread_pips captured at trade open (persisted in record).
+        # Stage 1b: move SL to breakeven on remaining position.
         be_price = float(entry)
         if settings.get("breakeven_spread_adjust", True):
             try:
@@ -882,31 +902,39 @@ def check_breakeven(history: list, trader, alert, settings: dict):
                         trade_id, entry, be_price, _spread_pips, _spread_usd,
                     )
             except (TypeError, ValueError):
-                pass  # fall back to pure entry if spread_pips is unusable
+                pass
+
         sl_result = trader.modify_sl(str(trade_id), round(be_price, 2))
         if sl_result.get("success"):
             trade["breakeven_moved"] = True
+            trade["breakeven_price"] = round(be_price, 2)
             trade["partial_closed"]  = partial_ok
+            trade["breakeven_moved_at_sgt"] = datetime.now(SGT).strftime("%Y-%m-%d %H:%M:%S")
             changed = True
+            save_history(history)  # critical: persist broker action before Telegram
             log.info(
-                "Breakeven set | trade %s | entry=%.2f | unrealized=+$%.2f | partial=%s",
-                trade_id, entry, unrealized_pnl, partial_ok,
+                "Breakeven set | trade %s | entry=%.2f | be=%.2f | unrealized=+$%.2f | partial=%s",
+                trade_id, entry, be_price, unrealized_pnl, partial_ok,
             )
-            alert.send(msg_breakeven(
-                trade_id=trade_id,
-                direction=direction,
-                entry=entry,
-                trigger_price=trigger_price,
-                trigger_usd=sl_usd,
-                current_price=trigger_price,
-                unrealized_pnl=unrealized_pnl,
-                demo=demo,
-            ))
+            try:
+                alert.send(msg_breakeven(
+                    trade_id=trade_id,
+                    direction=direction,
+                    entry=entry,
+                    trigger_price=trigger_price,
+                    trigger_dist=sl_usd,
+                    current_price=trigger_price,
+                    unrealized_pnl=unrealized_pnl,
+                    demo=demo,
+                ))
+            except Exception as exc:
+                log.warning("Breakeven Telegram alert failed for trade %s: %s", trade_id, exc)
         else:
-            log.warning(
-                "Breakeven SL move failed for trade %s: %s",
-                trade_id, sl_result.get("error"),
-            )
+            err = str(sl_result.get("error", ""))
+            log.warning("Breakeven SL move failed for trade %s: %s", trade_id, err)
+            if "No Trade as specified exists" in err:
+                _mark_trade_missing(trade, "modify_sl_no_trade")
+                changed = True
 
     if changed:
         save_history(history)
@@ -1261,6 +1289,20 @@ def _guard_phase(db, run_id, settings, alert, trader, history, now_sgt, today, d
         db.finish_cycle(run_id, status="SKIPPED", summary={"stage": "daily_caps", "reason": "loss_cap"})
         return None
 
+    _daily_loss_limit_usd = float(settings.get("daily_loss_limit_usd", 0) or 0)
+    if _daily_loss_limit_usd > 0 and _early_pnl <= -abs(_daily_loss_limit_usd):
+        _day_start_h = int(settings.get("trading_day_start_hour_sgt", 8))
+        _day_reset = (now_sgt + timedelta(days=1)).replace(hour=_day_start_h, minute=0, second=0, microsecond=0)
+        msg = msg_daily_cap(
+            "daily_loss_usd", abs(_early_pnl), _daily_loss_limit_usd,
+            daily_pnl=_early_pnl, reset_time_sgt=_day_reset.strftime("%Y-%m-%d %H:%M"),
+        )
+        log_event("DAILY_DOLLAR_LOSS_STOP", msg, run_id=run_id)
+        send_once_per_state(alert, ops, "loss_usd_cap_state", f"loss_usd_cap:{today}", msg)
+        update_runtime_state(last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"), status="SKIPPED_DAILY_LOSS_USD")
+        db.finish_cycle(run_id, status="SKIPPED", summary={"stage": "daily_caps", "reason": "daily_loss_usd"})
+        return None
+
     cooldown_started_until, _, cooldown_streak = maybe_start_loss_cooldown(history, today, now_sgt, settings)
     if cooldown_started_until and now_sgt < cooldown_started_until:
         send_once_per_state(
@@ -1301,8 +1343,11 @@ def _guard_phase(db, run_id, settings, alert, trader, history, now_sgt, today, d
             db.finish_cycle(run_id, status="SKIPPED", summary={"stage": "session_check", "reason": "outside_session"})
             return None
     else:
+        # Do not pre-block entries here; signals.py remains the source of truth for
+        # Dawn entry timing. Still keep the real Dawn window label when active so
+        # spread limits, window caps and Telegram labels are correct.
         if session is None:
-            session, macro = "All Hours", "London"
+            session, macro = "Outside Dawn Window", "London"
         threshold = int(settings.get("signal_threshold", 4))
 
     threshold = threshold or int(settings.get("signal_threshold", 4))
@@ -1908,6 +1953,36 @@ def _execution_phase(db, run_id, settings, alert, trader, history, now_sgt, toda
         "realized_pnl_usd":     None,
     }
 
+    dry_run = bool(settings.get("dry_run", False)) or get_bool_env("DRY_RUN", False)
+    if dry_run:
+        record["status"] = "DRY_RUN"
+        record["trade_id"] = "DRY-RUN"
+        record["dry_run"] = True
+        history.append(record)
+        save_history(history)
+        log.info("DRY RUN: order not sent to OANDA: %s", record, extra={"run_id": run_id})
+        try:
+            alert.send(
+                "🧪 DRY RUN — order NOT sent\n"
+                f"{direction} {INSTRUMENT} | {session}\n"
+                f"Entry≈{entry:.2f} SL={sl_price:.2f} TP={tp_price:.2f} Units={units}\n"
+                f"Risk requested=${position_usd:.2f} | Spread={spread_pips}p"
+            )
+        except Exception as exc:
+            log.warning("Dry-run Telegram alert failed: %s", exc)
+        db.record_trade_attempt(
+            {"pair": INSTRUMENT, "timeframe": settings.get("timeframe", "M15"), "side": direction, "score": score, **record},
+            ok=True, note="dry_run_no_order", broker_trade_id=record.get("trade_id"), run_id=run_id,
+        )
+        update_runtime_state(
+            last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
+            status="COMPLETED_DRY_RUN", score=score, direction=direction, trade_status=record["status"],
+        )
+        db.finish_cycle(run_id, status="COMPLETED", summary={
+            "signals": 1, "trades_placed": 0, "dry_run": True, "score": score, "direction": direction,
+        })
+        return None
+
     # ── Place order ───────────────────────────────────────────────────────────
     # v4.1: trailing stop at 0.5x SL pips — server-enforced by OANDA, no polling needed
     _trail_mult = float(settings.get("trailing_stop_atr_mult", 0.5))
@@ -2002,6 +2077,7 @@ def _execution_phase(db, run_id, settings, alert, trader, history, now_sgt, toda
                 news_penalty=news_penalty, raw_score=raw_score,
                 free_margin=margin_info.get("free_margin"),
                 required_margin=trader.estimate_required_margin(INSTRUMENT, units, price_for_margin),
+                requested_units=float(margin_info.get("requested_units", units)),
                 margin_mode=("RETRIED" if record["size"] != float(margin_info.get("final_units", record["size"])) else margin_info.get("status", "NORMAL")),
                 margin_usage_pct=(
                     (trader.estimate_required_margin(INSTRUMENT, units, price_for_margin) / float(margin_info.get("free_margin", 0)) * 100)
