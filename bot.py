@@ -1,4 +1,4 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.2.2
+"""Dawn — Automated XAU/USD Session Breakout Bot | v1.3
 
 Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
 the first 90 minutes after London open (15:00–16:30 SGT) and NY open
@@ -165,12 +165,12 @@ def validate_settings(settings: dict) -> dict:
     # by setdefault — a missing key is treated the same as any other default.
     # v4.4 — Three sessions active
     settings.setdefault("spread_limits",             {"Asian": 150, "London": 140, "US": 140})
-    settings.setdefault("max_trades_day",            2)     # v1.2.2 — Dawn has 2 entry windows/day
+    settings.setdefault("max_trades_day",            2)     # v1.3 — Dawn has 2 entry windows/day
     settings.setdefault("max_losing_trades_day",     999)   # v4.0-uncapped
     settings.setdefault("sl_mode",                   "atr_based")   # v4.0
     settings.setdefault("tp_mode",                   "rr_multiple")
-    settings.setdefault("rr_ratio",                  2.0)           # v1.2.2 — realistic M15 minimum RR
-    settings.setdefault("max_rr_ratio",              2.5)           # v1.2.2 — avoid unrealistic M15 TP
+    settings.setdefault("rr_ratio",                  2.0)           # v1.3 — realistic M15 minimum RR
+    settings.setdefault("max_rr_ratio",              2.5)           # v1.3 — avoid unrealistic M15 TP
     settings.setdefault("sl_min_atr_mult",           0.8)           # v5.1 — adaptive SL floor as fraction of ATR
     settings.setdefault("h1_trend_filter_enabled",   True)          # v5.1 — H1 EMA trend filter
     settings.setdefault("h1_ema_period",             21)            # v5.1 — H1 EMA period for trend
@@ -183,11 +183,11 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("enabled",                   True)
     settings.setdefault("atr_sl_multiplier",         1.0)           # v4.0 — raised from 0.5
     settings.setdefault("sl_min_usd",                15.0)          # v4.0 — raised from 4.0
-    settings.setdefault("sl_max_usd",                35.0)          # v1.2.2 — Dawn range-based SL clamp
+    settings.setdefault("sl_max_usd",                35.0)          # v1.3 — Dawn range-based SL clamp
     settings.setdefault("fixed_sl_usd",              20.0)          # v4.0 — raised from 5.0
     settings.setdefault("breakeven_trigger_usd",     15.0)          # v4.0 — raised from 3.0
     settings.setdefault("dry_run",                   False)         # v1.2.1 — signal/order simulation; no broker order
-    settings.setdefault("daily_loss_limit_usd",      150.0)         # v1.2.2 — daily dollar loss stop
+    settings.setdefault("daily_loss_limit_usd",      150.0)         # v1.3 — daily dollar loss stop
     settings.setdefault("sl_pct",                   0.0025)
     settings.setdefault("tp_pct",                   0.0075)
     settings.setdefault("margin_safety_factor",      0.6)

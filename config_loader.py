@@ -72,40 +72,22 @@ def ensure_persistent_settings() -> Path:
         # after deploying v4.0-uncapped. Every key listed here is always
         # written from the bundled defaults regardless of what the volume has.
         V4_FORCE_SYNC_KEYS = [
+            # Core Dawn v1.2.x strategy/risk parameters that must follow the
+            # bundled settings.json on deployment. Railway's /data/settings.json
+            # persists across deploys, so stale values such as
+            # dawn_tp_range_pct=1.50 or max_rr_ratio=1.5 can otherwise survive
+            # and make Telegram/startup display the wrong SL/TP logic.
             'sl_mode',
-            'atr_sl_multiplier',
+            'tp_mode',
+            'dawn_sl_range_pct',
+            'dawn_tp_range_pct',
+            'dawn_range_min_usd',
+            'dawn_range_max_usd',
             'sl_min_usd',
             'sl_max_usd',
             'rr_ratio',
-            'breakeven_trigger_usd',
-            'dry_run',
-            'daily_loss_limit_usd',
-            'max_losing_trades_day',
-            'max_trades_day',
-            'max_losing_trades_session',
-            'loss_streak_cooldown_min',
-            'max_trades_london',
-            'max_trades_us',
-            'friday_cutoff_hour_sgt',
-            'friday_cutoff_minute_sgt',
-        ]
-        for key in V4_FORCE_SYNC_KEYS:
-            if key in default_settings:
-                if persistent.get(key) != default_settings[key]:
-                    changed[key] = default_settings[key]
-
-        # v4.0 migration — force-sync all keys that changed in v4.0 from the
-        # bundled settings.json. setdefault() never overwrites existing volume
-        # values, so without this the persistent volume silently keeps old
-        # values (e.g. sl_mode=pct_based, loss_streak_cooldown_min=30) even
-        # after deploying v4.0-uncapped. Every key listed here is always
-        # written from the bundled defaults regardless of what the volume has.
-        V4_FORCE_SYNC_KEYS = [
-            'sl_mode',
+            'max_rr_ratio',
             'atr_sl_multiplier',
-            'sl_min_usd',
-            'sl_max_usd',
-            'rr_ratio',
             'breakeven_trigger_usd',
             'dry_run',
             'daily_loss_limit_usd',

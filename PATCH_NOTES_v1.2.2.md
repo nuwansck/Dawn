@@ -1,4 +1,4 @@
-# Dawn v1.2.2 Patch Notes
+# Dawn v1.3 Patch Notes
 
 ## Purpose
 Tune Dawn for more realistic XAU/USD M15 breakout exits and improve SL/TP visibility.

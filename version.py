@@ -1,3 +1,3 @@
-"""Single source of version truth for Dawn Bot."""
-__version__ = "1.2.2"
-BOT_NAME    = "Dawn"
+"""Dawn version information."""
+__version__ = "1.3"
+BOT_NAME = "Dawn v1.3"
