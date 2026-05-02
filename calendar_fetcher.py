@@ -1,5 +1,5 @@
 """
-Forex Factory calendar fetcher for the Rogue.
+Forex Factory calendar fetcher for Dawn.
 
 Architecture-only improvements:
 - Uses /data/runtime_state.json cooldown tracking
@@ -189,7 +189,7 @@ def _parse_ff_event(event: dict) -> dict | None:
 
 def _fetch_ff_events(url: str, suppress_404: bool = False) -> tuple[list, int | None]:
     try:
-        r = requests.get(url, timeout=15, headers={"User-Agent": "Rogue/1.0"})
+        r = requests.get(url, timeout=15, headers={"User-Agent": "Dawn/1.4"})
         if r.status_code == 200:
             data = r.json()
             events = data if isinstance(data, list) else []

@@ -65,14 +65,11 @@ def ensure_persistent_settings() -> Path:
         if bundled_threshold is not None and persistent.get('signal_threshold') != bundled_threshold:
             changed['signal_threshold'] = bundled_threshold
 
-        # v4.0 migration — force-sync all keys that changed in v4.0 from the
-        # bundled settings.json. setdefault() never overwrites existing volume
-        # values, so without this the persistent volume silently keeps old
-        # values (e.g. sl_mode=pct_based, loss_streak_cooldown_min=30) even
-        # after deploying v4.0-uncapped. Every key listed here is always
-        # written from the bundled defaults regardless of what the volume has.
-        V4_FORCE_SYNC_KEYS = [
-            # Core Dawn v1.2.x strategy/risk parameters that must follow the
+        # Dawn v1.4 persistent-settings sync. Railway's /data/settings.json
+        # persists across deploys, so strategy-critical keys are always
+        # written from the bundled defaults when the service starts.
+        DAWN_FORCE_SYNC_KEYS = [
+            # Core Dawn v1.4 strategy/risk parameters that must follow the
             # bundled settings.json on deployment. Railway's /data/settings.json
             # persists across deploys, so stale values such as
             # dawn_tp_range_pct=1.50 or max_rr_ratio=1.5 can otherwise survive
@@ -89,7 +86,6 @@ def ensure_persistent_settings() -> Path:
             'max_rr_ratio',
             'atr_sl_multiplier',
             'breakeven_trigger_usd',
-            'dry_run',
             'daily_loss_limit_usd',
             'max_losing_trades_day',
             'max_trades_day',
@@ -100,7 +96,7 @@ def ensure_persistent_settings() -> Path:
             'friday_cutoff_hour_sgt',
             'friday_cutoff_minute_sgt',
         ]
-        for key in V4_FORCE_SYNC_KEYS:
+        for key in DAWN_FORCE_SYNC_KEYS:
             if key in default_settings:
                 if persistent.get(key) != default_settings[key]:
                     changed[key] = default_settings[key]
@@ -115,7 +111,7 @@ def ensure_persistent_settings() -> Path:
         return SETTINGS_FILE
 
     # First boot — bootstrap the persistent file from bundled defaults.
-    default_settings.setdefault('bot_name', 'Rogue')
+    default_settings.setdefault('bot_name', 'Dawn v1.4')
     default_settings.setdefault('max_rr_ratio', 3.0)
     default_settings.setdefault('sl_min_atr_mult', 0.8)
     default_settings.setdefault('h1_trend_filter_enabled', True)
@@ -127,7 +123,7 @@ def ensure_persistent_settings() -> Path:
     default_settings.setdefault('us_session_enabled', True)
     default_settings.setdefault('session_report_hour_sgt', 2)
     default_settings.setdefault('session_report_minute_sgt', 0)
-    default_settings.setdefault('version', '4.2')
+    default_settings.setdefault('version', '1.4')
     default_settings.setdefault('instrument', 'XAU_USD')
     default_settings.setdefault('instrument_display', 'XAU/USD')
     default_settings.setdefault('timeframe', 'M15')
@@ -170,7 +166,7 @@ def load_settings() -> dict:
 
     original_keys = set(settings.keys())
 
-    settings.setdefault('bot_name', 'Rogue')
+    settings.setdefault('bot_name', 'Dawn v1.4')
     settings.setdefault('max_rr_ratio', 3.0)
     settings.setdefault('sl_min_atr_mult', 0.8)
     settings.setdefault('h1_trend_filter_enabled', True)
@@ -187,7 +183,7 @@ def load_settings() -> dict:
     settings.setdefault('us_report_hour_sgt',         1)
     settings.setdefault('us_report_minute_sgt',       5)
     settings.setdefault('session_report_minute_sgt', 0)
-    settings.setdefault('version', '4.2')
+    settings.setdefault('version', '1.4')
     settings.setdefault('instrument', 'XAU_USD')
     settings.setdefault('instrument_display', 'XAU/USD')
     settings.setdefault('timeframe', 'M15')
@@ -201,10 +197,10 @@ def load_settings() -> dict:
     settings.setdefault('calendar_retry_after_min', 15)
     settings.setdefault('exhaustion_atr_mult', 2.0)
     settings.setdefault('trading_day_start_hour_sgt', 8)
-    settings.setdefault('max_losing_trades_session', 999)   # v4.0-uncapped
-    settings.setdefault('max_trades_london', 999)           # v4.0-uncapped
+    settings.setdefault('max_losing_trades_session', 999)
+    settings.setdefault('max_trades_london', 999)        
     settings.setdefault('max_trades_asian', 5)
-    settings.setdefault('max_trades_us', 999)               # v4.0-uncapped
+    settings.setdefault('max_trades_us', 999)            
     settings.setdefault('session_start_hour_sgt', 16)
     settings.setdefault('session_end_hour_sgt', 1)
 

@@ -1,11 +1,6 @@
-"""
-Telegram Alert System — RF Scalp Bot v2.0
+"""Telegram alert sender for Dawn v1.4.
 
-Retries up to 3 times on 5xx errors with exponential backoff.
-HTTP 429 (rate-limit) respects the Retry-After header.
-4xx errors (bad token, bad chat_id) are NOT retried — config errors.
-
-v2.0: send_document() added for scheduled weekly trade history export.
+Retries temporary Telegram API failures and prefixes each message with the configured bot name.
 """
 import logging
 import os
@@ -35,7 +30,7 @@ class TelegramAlert:
             log.warning("Telegram not configured.")
             return False
 
-        _bot_name = load_settings().get("bot_name", "RF Scalp")
+        _bot_name = load_settings().get("bot_name", "Dawn v1.4")
         url  = f"https://api.telegram.org/bot{self.token}/sendMessage"
         text = f"\U0001f916 {_bot_name}\n{chr(0x2500) * 22}\n{message}"
 

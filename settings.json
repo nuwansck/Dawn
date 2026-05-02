@@ -1,6 +1,6 @@
 {
-  "bot_name": "Dawn",
-  "version": "v1.3",
+  "bot_name": "Dawn v1.4",
+  "version": "1.4",
   "demo_mode": true,
   "trade_gold": true,
   "_comment_strategy": "Dawn = session range breakout. NO score gating \u2014 binary fire on close beyond range.",
@@ -10,7 +10,7 @@
   "dawn_tp_range_pct": 1.0,
   "dawn_range_min_usd": 15.0,
   "dawn_range_max_usd": 80.0,
-  "_comment_sl_tp": "Dawn v1.3: realistic M15 exits. SL = 50% x range clamped 15-35; TP = 100% x range; RR capped at 1:2.5. Force-sync protects Railway persistent settings from stale TP/RR values.",
+  "_comment_sl_tp": "Dawn v1.4 final: realistic M15 exits. SL = 50% x range clamped 15-35; TP = 100% x range; RR capped at 1:2.5. Force-sync protects Railway persistent settings from stale TP/RR values.",
   "sl_mode": "range_based",
   "tp_mode": "range_based",
   "sl_min_usd": 15.0,
@@ -107,6 +107,5 @@
   "tp_pct": 0.0075,
   "fixed_sl_usd": 20.0,
   "fixed_tp_usd": null,
-  "dry_run": false,
   "daily_loss_limit_usd": 150.0
 }

@@ -1,5 +1,5 @@
 """
-Startup/runtime reconciliation helpers for the Rogue.
+Startup/runtime reconciliation helpers for Dawn.
 Broker state is treated as the source of truth for open positions/trades.
 """
 from __future__ import annotations

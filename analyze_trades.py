@@ -1,5 +1,5 @@
 """
-analyze_trades.py — Rogue Performance Dashboard
+analyze_trades.py — Dawn Performance Dashboard
 Run from the same folder as trade_history.json:
 
     python analyze_trades.py              # all FILLED trades

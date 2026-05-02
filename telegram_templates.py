@@ -1,4 +1,4 @@
-"""Telegram message templates for Dawn v1.1
+"""Telegram message templates for Dawn v1.4
 AtomicFX-style: clean, state-change only, minimal noise.
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ def _split_banner(banner: str) -> tuple[str, str]:
     """Extract pair from banner.
     Handles both:
       '🇬🇧 LONDON [XAU/USD]'  → ('🇬🇧 LONDON [XAU/USD]', 'XAU/USD')
-      'Dawn v1.1 | XAU/USD' → ('Dawn v1.1', 'XAU/USD')
+      'Dawn v1.4 | XAU/USD' → ('Dawn v1.4', 'XAU/USD')
     """
     if "[" in banner and "]" in banner:
         pair = banner[banner.index("[")+1 : banner.index("]")]
@@ -72,7 +72,7 @@ def msg_signal_update(
     di    = _dir_icon(direction)
     nline = f"⚠️  News penalty: {news_penalty:+d}\n" if news_penalty else ""
 
-    # Dawn v1.1: prefer range_size line if provided; fall back to CPR for Rogue compat.
+    # Dawn v1.4: prefer range_size line if provided; fall back to CPR for Rogue compat.
     context_line = (
         f"Range size: {range_size:.2f} points"
         if range_size is not None
@@ -301,7 +301,7 @@ def msg_daily_cap(cap_type, count, limit, window="", daily_pnl=None,
                   day_start_sgt="", day_end_sgt="", day_reset_sgt="") -> str:
     """Daily/window cap alert.
 
-    v1.2.1 accepts legacy bot.py keyword names day_start_sgt/day_end_sgt/
+    Accepts bot.py keyword names day_start_sgt/day_end_sgt/
     day_reset_sgt so cap alerts cannot crash the cycle when a safety stop fires.
     """
     if day_reset_sgt and not reset_time_sgt:
@@ -446,7 +446,7 @@ def msg_startup(
     us_start=20, us_end=22, max_total_open=1,
     position_full_usd=100, position_partial_usd=100, session_thresholds=None,
     tg_min_score=1, h1_filter_enabled=True, h1_filter_mode="hard",
-    dry_run=False, daily_loss_limit_usd=150.0,
+    daily_loss_limit_usd=150.0,
     dawn_range_min_usd=15.0, dawn_range_max_usd=80.0,
     dawn_sl_range_pct=0.50, dawn_tp_range_pct=1.00,
     sl_min_usd=15.0, sl_max_usd=35.0, max_rr_ratio=2.5,
@@ -461,11 +461,10 @@ def msg_startup(
         f"H1 filter: {'✅' if h1_filter_enabled else '⬜'} "
         f"{h1_filter_mode.upper() if h1_filter_enabled else 'OFF'}\n"
     )
-    dry = "ON 🧪" if dry_run else "OFF"
     daily_loss_line = "Disabled" if not daily_loss_limit_usd else f"${float(daily_loss_limit_usd):.0f}"
     return (
         f"🌅 {version} started\n{_DIV}\n"
-        f"Mode:      {mode}  |  Dry run: {dry}  |  Balance: ${balance:,.2f}\n"
+        f"Mode:      {mode}  |  Balance: ${balance:,.2f}\n"
         f"Pair:      XAU/USD  |  Signal TF: M15  |  Trend TF: H1  |  Cycle: {cycle_minutes} min\n"
         f"Strategy:  Session Breakout + H1 Trend Filter\n"
         f"Entry:     First completed M15 close beyond prior range\n"

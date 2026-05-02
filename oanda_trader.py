@@ -1,4 +1,4 @@
-"""OANDA execution layer for the Rogue.
+"""OANDA execution layer for Dawn.
 
 Handles pricing, order placement, trade lookup, stop updates, and retry-safe
 HTTP communication with OANDA.

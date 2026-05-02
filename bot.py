@@ -1,4 +1,4 @@
-"""Dawn — Automated XAU/USD Session Breakout Bot | v1.3
+"""Dawn — Automated XAU/USD Session Breakout Bot | v1.4
 
 Dawn trades gold (XAU/USD) on M15 using prior-session range breakouts during
 the first 90 minutes after London open (15:00–16:30 SGT) and NY open
@@ -14,7 +14,7 @@ Risk:
   SL = range_size × 0.50  (clamped $15–$35)
   TP = range_size × 1.00  (realistic M15 target; capped by max_rr_ratio)
 
-Entry guards (inherited from Rogue v1.3 infrastructure):
+Entry guards (inherited from Rogue v1.4 infrastructure):
   Range-size filter  — 15 ≤ range ≤ 80 points (reject noise & volatile days)
   H1 EMA21 filter    — counter-trend HARD block
   Direction cooldown — 120 min after ANY SL
@@ -30,12 +30,12 @@ Risk controls:
   Direction cooldown     : 120 min
   Max concurrent trades  : 1
 
-v1.0 — initial Dawn release. Built on Rogue v1.3 infrastructure with:
+v1.0 — initial Dawn release. Built on Rogue v1.4 infrastructure with:
   1. Rewritten signals.py — session range breakout replaces CPR scoring
   2. New sl_mode = "range_based" and tp_mode = "range_based"
   3. Fixed $100 position sizing (no score-to-size tiers)
   4. Dawn-specific settings keys (dawn_range_min/max_usd, dawn_sl/tp_range_pct)
-  5. Spread-adjusted breakeven preserved from Rogue v1.3
+  5. Spread-adjusted breakeven preserved from Rogue v1.4
 
 v1.1 — bug fixes surfaced in first deploy audit:
   1. CRITICAL (1 of 2) — flipped session_only: false so bot.py's legacy SESSIONS tuple
@@ -97,7 +97,7 @@ HISTORY_FILE = TRADE_HISTORY_FILE
 HISTORY_DAYS = 90
 # Removed: ARCHIVE_FILE — archival removed; 90-day rolling window stored in trade_history.json
 
-# Dawn v1.2.1 — strategy windows are minute-aware and aligned with signals.py.
+# Dawn v1.4 — strategy windows are minute-aware and aligned with signals.py.
 # Each tuple: (window_name, macro_session, start_time, end_time, fallback_threshold).
 # London: 15:00–16:30 SGT | NY/US: 20:30–22:00 SGT.
 SESSIONS = [
@@ -165,12 +165,12 @@ def validate_settings(settings: dict) -> dict:
     # by setdefault — a missing key is treated the same as any other default.
     # v4.4 — Three sessions active
     settings.setdefault("spread_limits",             {"Asian": 150, "London": 140, "US": 140})
-    settings.setdefault("max_trades_day",            2)     # v1.3 — Dawn has 2 entry windows/day
+    settings.setdefault("max_trades_day",            2)     # v1.4 — Dawn has 2 entry windows/day
     settings.setdefault("max_losing_trades_day",     999)   # v4.0-uncapped
     settings.setdefault("sl_mode",                   "atr_based")   # v4.0
     settings.setdefault("tp_mode",                   "rr_multiple")
-    settings.setdefault("rr_ratio",                  2.0)           # v1.3 — realistic M15 minimum RR
-    settings.setdefault("max_rr_ratio",              2.5)           # v1.3 — avoid unrealistic M15 TP
+    settings.setdefault("rr_ratio",                  2.0)           # v1.4 — realistic M15 minimum RR
+    settings.setdefault("max_rr_ratio",              2.5)           # v1.4 — avoid unrealistic M15 TP
     settings.setdefault("sl_min_atr_mult",           0.8)           # v5.1 — adaptive SL floor as fraction of ATR
     settings.setdefault("h1_trend_filter_enabled",   True)          # v5.1 — H1 EMA trend filter
     settings.setdefault("h1_ema_period",             21)            # v5.1 — H1 EMA period for trend
@@ -183,11 +183,10 @@ def validate_settings(settings: dict) -> dict:
     settings.setdefault("enabled",                   True)
     settings.setdefault("atr_sl_multiplier",         1.0)           # v4.0 — raised from 0.5
     settings.setdefault("sl_min_usd",                15.0)          # v4.0 — raised from 4.0
-    settings.setdefault("sl_max_usd",                35.0)          # v1.3 — Dawn range-based SL clamp
+    settings.setdefault("sl_max_usd",                35.0)          # v1.4 — Dawn range-based SL clamp
     settings.setdefault("fixed_sl_usd",              20.0)          # v4.0 — raised from 5.0
     settings.setdefault("breakeven_trigger_usd",     15.0)          # v4.0 — raised from 3.0
-    settings.setdefault("dry_run",                   False)         # v1.2.1 — signal/order simulation; no broker order
-    settings.setdefault("daily_loss_limit_usd",      150.0)         # v1.3 — daily dollar loss stop
+    settings.setdefault("daily_loss_limit_usd",      150.0)         # v1.4 — daily dollar loss stop
     settings.setdefault("sl_pct",                   0.0025)
     settings.setdefault("tp_pct",                   0.0075)
     settings.setdefault("margin_safety_factor",      0.6)
@@ -308,7 +307,7 @@ def _time_in_range(current: dtime, start: dtime, end: dtime) -> bool:
 def get_session(now: datetime, settings: dict = None):
     """Return the active Dawn window.
 
-    v1.2.1: this is now minute-aware and matches signals.py's Dawn windows:
+    Dawn v1.4: minute-aware and aligned with signals.py windows:
     London 15:00–16:30 SGT and US/NY 20:30–22:00 SGT.
     """
     current = now.time()
@@ -822,7 +821,7 @@ def check_breakeven(history: list, trader, alert, settings: dict):
       - Partial-close 50% of the position to lock realized profit.
       - Move SL to breakeven so the runner is risk-free.
 
-    v1.2.1 hardening:
+    Dawn v1.4 hardening:
       - Uses msg_breakeven(trigger_dist=...) to fix the runtime crash.
       - Saves trade state before Telegram, so an alert failure cannot corrupt
         trade-management state.
@@ -1216,7 +1215,7 @@ def _guard_phase(db, run_id, settings, alert, trader, history, now_sgt, today, d
 
     log.info(
         "=== %s | %s SGT ===",
-        settings.get("bot_name", "Rogue"),
+        settings.get("bot_name", "Dawn v1.4"),
         now_sgt.strftime("%Y-%m-%d %H:%M"),
         extra={"run_id": run_id},
     )
@@ -1953,35 +1952,6 @@ def _execution_phase(db, run_id, settings, alert, trader, history, now_sgt, toda
         "realized_pnl_usd":     None,
     }
 
-    dry_run = bool(settings.get("dry_run", False)) or get_bool_env("DRY_RUN", False)
-    if dry_run:
-        record["status"] = "DRY_RUN"
-        record["trade_id"] = "DRY-RUN"
-        record["dry_run"] = True
-        history.append(record)
-        save_history(history)
-        log.info("DRY RUN: order not sent to OANDA: %s", record, extra={"run_id": run_id})
-        try:
-            alert.send(
-                "🧪 DRY RUN — order NOT sent\n"
-                f"{direction} {INSTRUMENT} | {session}\n"
-                f"Entry≈{entry:.2f} SL={sl_price:.2f} TP={tp_price:.2f} Units={units}\n"
-                f"Risk requested=${position_usd:.2f} | Spread={spread_pips}p"
-            )
-        except Exception as exc:
-            log.warning("Dry-run Telegram alert failed: %s", exc)
-        db.record_trade_attempt(
-            {"pair": INSTRUMENT, "timeframe": settings.get("timeframe", "M15"), "side": direction, "score": score, **record},
-            ok=True, note="dry_run_no_order", broker_trade_id=record.get("trade_id"), run_id=run_id,
-        )
-        update_runtime_state(
-            last_cycle_finished=now_sgt.strftime("%Y-%m-%d %H:%M:%S"),
-            status="COMPLETED_DRY_RUN", score=score, direction=direction, trade_status=record["status"],
-        )
-        db.finish_cycle(run_id, status="COMPLETED", summary={
-            "signals": 1, "trades_placed": 0, "dry_run": True, "score": score, "direction": direction,
-        })
-        return None
 
     # ── Place order ───────────────────────────────────────────────────────────
     # v4.1: trailing stop at 0.5x SL pips — server-enforced by OANDA, no polling needed

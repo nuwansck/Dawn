@@ -89,7 +89,7 @@ def main():
 
     _start_health_server()
 
-    logger.info('%s — Scheduler starting', settings.get('bot_name', 'Rogue'))
+    logger.info('%s — Scheduler starting', settings.get('bot_name', 'Dawn v1.4'))
     logger.info('DATA_DIR : %s', DATA_DIR)
     logger.info('Python   : %s', sys.version.split()[0])
     for warning in run_startup_checks():
@@ -232,7 +232,6 @@ def main():
             max_total_open=int(settings.get('max_concurrent_trades', 1)),
             h1_filter_enabled=bool(settings.get('h1_trend_filter_enabled', True)),
             h1_filter_mode=str(settings.get('h1_filter_mode', 'hard')),
-            dry_run=bool(settings.get('dry_run', False)),
             daily_loss_limit_usd=float(settings.get('daily_loss_limit_usd', 150.0) or 0),
             dawn_range_min_usd=float(settings.get('dawn_range_min_usd', 15.0)),
             dawn_range_max_usd=float(settings.get('dawn_range_max_usd', 80.0)),
