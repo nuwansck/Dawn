@@ -1,6 +1,6 @@
 {
-  "bot_name": "Dawn v1.3",
-  "version": "1.3",
+  "bot_name": "Dawn",
+  "version": "v1.3",
   "demo_mode": true,
   "trade_gold": true,
   "_comment_strategy": "Dawn = session range breakout. NO score gating \u2014 binary fire on close beyond range.",
